@@ -185,6 +185,7 @@ void Snippet::execute(dnnl::stream strm) {
     if (schedule.ptr == nullptr || !canUseOptimizedImpl) {
         IE_THROW() << "Snippet can't use Optimized implementation and can't fallback to reference";
     }
+
     jit_snippets_call_args call_args;
     for (size_t i = 0; i < srcMemPtrs.size(); i++)
         call_args.src_ptrs[i] = reinterpret_cast<const uint8_t*>(srcMemPtrs[i]->GetData()) + start_offset_in[i];
@@ -249,6 +250,23 @@ static auto collapseLastDims(std::vector<size_t>& dims, size_t dimsToCollapse) -
     }
 }
 
+namespace {
+bool is_concatenated_constant(const std::shared_ptr<Node>& parent) {
+    const auto parent_type = parent->getType();
+    if (parent_type == Type::Reorder) {
+        auto parent_edges2 = parent->getParentEdgesAtPort(0);
+        auto parent2 = parent_edges2[0]->getParent();
+        return is_concatenated_constant(parent2);
+    }
+
+    if (parent->isConstant() && parent->concatenated) {
+        return true;
+    }
+
+    return false;
+}
+} // namespace
+
 void Snippet::define_schedule() {
     auto edgeToBlockedShape = [](const EdgePtr& edge) {
         const auto blockedDesc = edge->getMemory().GetDescWithType<BlockedMemoryDesc>();
@@ -292,12 +310,27 @@ void Snippet::define_schedule() {
         // find max rank input among all outputs
         const size_t inputNum = getParentEdges().size();
         offsets_in.resize(inputNum);
+        size_t concatenated_index = 0;
+        bool concatenated = false;
         for (size_t i = 0; i < inputNum; i++) {
+            auto parent_edges = this->getParentEdgesAtPort(i);
+            if (concatenated == false) {
+                concatenated = is_concatenated_constant(parent_edges[0]->getParent());
+                concatenated_index = i;
+            }
+
             offsets_in[i].resize(tensorRank, 1);
             offset_calculation(offsets_in[i], dims_in[i], exec_domain);
             for (size_t j = 0; j < tensorRank; j++) {
                 offsets_in[i][j] *= dataSize;
             }
+        }
+
+        if (concatenated) {
+            //offsets_in[concatenated_index][0] = 0;
+            // TODO: not clear - why we need do it?
+            offsets_in[concatenated_index][1] = 0;
+            //offsets_in[concatenated_index][2] = 0;
         }
 
         start_offset_in.resize(inputNum);
@@ -443,8 +476,7 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
     parallel_for5d(dom[0], dom[1], dom[2], dom[3], dom[4],
         [&](int64_t d0, int64_t d1, int64_t d2, int64_t d3, int64_t d4) {
             int64_t indexes[] = {d0, d1, d2, d3, d4};
-            auto callable = schedule.get_callable<kernel>();
-            callable(indexes, &call_args);
+            schedule.get_callable<kernel>()(indexes, &call_args);
         });
 }
 

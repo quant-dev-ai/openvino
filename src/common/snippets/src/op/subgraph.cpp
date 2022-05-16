@@ -12,6 +12,7 @@
 #include "snippets/pass/assign_registers.hpp"
 #include "snippets/pass/convert_constants.hpp"
 #include "snippets/pass/convert_power_to_powerstatic.hpp"
+#include "snippets/pass/replace_loads_with_split_loads.hpp"
 #include "snippets/pass/vector_to_scalar.hpp"
 
 #include <ngraph/pass/manager.hpp>
@@ -223,13 +224,14 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     auto skip_matching_domain = [](const std::shared_ptr<const ov::Node>& n) -> bool {
         return n->get_input_shape(0).back() != 1;
     };
-
     ngraph::pass::Manager manager;
     manager.register_pass<snippets::pass::ConvertConstants>();
     manager.register_pass<snippets::pass::ConvertPowerToPowerStatic>();
+    // TODO: think about: here: fake Split is here instead InsertLoad
     manager.register_pass<snippets::pass::InsertLoad>();
     manager.register_pass<snippets::pass::InsertStore>();
     manager.register_pass<snippets::pass::InsertMoveBroadcast>();
+    manager.register_pass<snippets::pass::ReplaceLoadsWithSplitLoads>();
     manager.register_pass<snippets::pass::LoadMoveBroadcastToBroadcastLoad>();
     // Note that, BrodacastMove is typically inserted right after the Load. Such cases are typical for
     // simple subgraphs where one of the ngraph::op's inputs is broadcasted to match the larger one. However, BroadcastMove
