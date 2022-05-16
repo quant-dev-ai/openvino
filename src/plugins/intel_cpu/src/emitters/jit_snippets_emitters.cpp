@@ -499,8 +499,30 @@ void ScalarStoreEmitter::emit_isa(const std::vector<size_t> &in, const std::vect
 
 LoadEmitter::LoadEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
                          const std::shared_ptr<ov::Node>& n)
-                         : MemoryEmitter(h, isa, n), shouldPostIncrement(*n->get_input_shape(0).rbegin() != 1) {
+                         : MemoryEmitter(h, isa, n) {
     in_out_type_ = emitter_in_out_map::gpr_to_vec;
+
+    auto load = ov::as_type_ptr<ngraph::snippets::op::Load>(n);
+    if (load == nullptr) {
+        // TODO: snippets: throw exception
+        throw std::exception();
+    }
+
+    if (*n->get_input_shape(0).rbegin() != 1) {
+        const auto input_node = n->get_input_node_shared_ptr(0);
+        if (ov::is_type<ngraph::opset1::Split>(input_node)) {
+            //// TODO: fake split consumers order is important: the latest Load increment memory pointer
+            //// TODO: fake split: add check: has to have only one consumer for one output port
+            //shouldPostIncrement = n->input(0).get_source_output().get_index() == (input_node->outputs().size() - 1ul);
+            shouldPostIncrement = load->should_post_increment;
+        } else {
+            shouldPostIncrement = true;
+        }
+    } else {
+        shouldPostIncrement = false;
+    }
+
+    offset = load->offset;
 }
 
 void LoadEmitter::emit_impl(const std::vector<size_t>& in,
@@ -526,7 +548,17 @@ void LoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 in_reg(static_cast<int>(in[0]));
     Vmm vmm_src0 = Vmm(out[0]);
+
+    if (offset != 0ul) {
+        h->add(in_reg, offset);
+    }
+
+    // TODO: snippets: move with offset?
     h->uni_vmovups(vmm_src0, h->ptr[in_reg]);
+
+    if (offset != 0ul) {
+        h->sub(in_reg, offset);
+    }
 
     if (shouldPostIncrement) {
         h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);

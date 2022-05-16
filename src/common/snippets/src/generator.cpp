@@ -52,6 +52,67 @@ ngraph::snippets::code ngraph::snippets::Generator::generate(std::shared_ptr<ov:
     OV_ITT_TASK_CHAIN(GENERATE, ngraph::pass::itt::domains::SnippetsTransform, "Snippets::Generator", "::VectorTile")
     // vector tile
     std::vector<AllocatedEmitter> lowered;
+
+    {
+        // TODO: snippets: order is important for one pointer based operations: Loads with offset for one pointer
+        // std::unordered_map<std::shared_ptr<ngraph::Node>, std::set<std::shared_ptr<ngraph::Node>>> ordered_nodes;
+        std::unordered_map<std::shared_ptr<ngraph::Node>, std::vector<std::shared_ptr<ngraph::snippets::op::Load>>> ordered_nodes;
+        std::unordered_map<std::shared_ptr<ngraph::snippets::op::Load>, size_t> ordered_ops;
+        size_t order = 0;
+        for (auto n : m->get_ordered_ops()) {
+            // TODO: snippets: add checks
+            auto load = ngraph::as_type_ptr<ngraph::snippets::op::Load>(n);
+            if ((load != nullptr) && ngraph::is_type<ngraph::opset1::Split>(n->get_input_node_shared_ptr(0))) {
+                ordered_ops.emplace(load, order);
+
+                auto get_nodes = [](
+                        std::shared_ptr<ngraph::Node> &n,
+                        std::unordered_map<std::shared_ptr<ngraph::Node>, std::vector<std::shared_ptr<ngraph::snippets::op::Load>>> &ordered_nodes) ->
+                        std::vector<std::shared_ptr<ngraph::snippets::op::Load>> & {
+                    auto it = ordered_nodes.find(n->get_input_node_shared_ptr(0));
+                    if (it != ordered_nodes.end()) {
+                        return it->second;
+                    }
+
+                    ordered_nodes[n->get_input_node_shared_ptr(0)] = {};
+                    return ordered_nodes[n->get_input_node_shared_ptr(0)];
+                };
+
+                const auto index = n->get_input_source_output(0).get_index();
+                auto &nodes = get_nodes(n, ordered_nodes);
+                if (nodes.size() <= index) {
+                    nodes.resize(index + 1);
+                }
+                nodes[index] = load;
+            }
+            order++;
+        }
+
+        for (auto nodes : ordered_nodes) {
+            std::shared_ptr<ngraph::snippets::op::Load> latest;
+            size_t latest_order;
+            for (auto n : nodes.second) {
+                const auto it = ordered_ops.find(n);
+                if (it == ordered_ops.end()) {
+                    // TODO: snippets: throw exception
+                    throw std::exception();
+                }
+
+                order = it->second;
+                if ((latest == nullptr) || (order > latest_order)) {
+                    latest = n;
+                    latest_order = order;
+                }
+            }
+
+            if (latest == nullptr) {
+                // TODO: snippets: throw exception
+                throw std::exception();
+            }
+            latest->should_post_increment = true;
+        }
+    }
+
     for (auto n : m->get_ordered_ops()) {
         lowered.emplace_back(std::make_pair(target->get(n->get_type_info())(n), ngraph::snippets::getRegisters(n)));
     }

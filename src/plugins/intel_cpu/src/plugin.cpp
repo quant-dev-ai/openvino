@@ -84,6 +84,7 @@
 #include <snippets/pass/collapse_subgraph.hpp>
 #include <snippets/pass/common_optimizations.hpp>
 #include <snippets/pass/constant_folding.hpp>
+#include <snippets/pass/concatenate_constants.hpp>
 #include "ngraph_transformations/snippets_mark_skipped.hpp"
 #include <transformations/op_conversions/convert_roi_align_v9_to_v3.hpp>
 #include <transformations/op_conversions/convert_roi_align_v3_to_v9.hpp>
@@ -137,6 +138,8 @@
 
 #include <cpu/x64/cpu_isa_traits.hpp>
 #include <itt.h>
+
+#include <snippets/op/subgraph.hpp>
 
 using namespace InferenceEngine;
 
@@ -528,10 +531,6 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         tokenization_manager.register_pass<ngraph::snippets::pass::TokenizeSnippets>();
         tokenization_manager.get_pass_config()->set_callback<ngraph::snippets::pass::TokenizeSnippets>(
                 [](const std::shared_ptr<const ov::Node>& n) -> bool {
-                    if (ngraph::is_type<ngraph::opset1::FakeQuantize>(n) && !ngraph::pass::FakeQuantizeDecomposition::isAllScalarConstant(n)) {
-                        return true;
-                    }
-
                     const auto& inputs = n->inputs();
                     // todo: clarify whether we can evaluate snippets on const paths
                     const bool has_only_const_inputs = std::all_of(inputs.begin(), inputs.end(),
@@ -552,6 +551,7 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
                 });
         tokenization_manager.register_pass<ngraph::snippets::pass::CommonOptimizations>();
         tokenization_manager.register_pass<ngraph::snippets::pass::ConstantFolding>();
+        tokenization_manager.register_pass<ngraph::snippets::pass::ConcatenateConstants>();
         tokenization_manager.run_passes(nGraphFunc);
     }
 

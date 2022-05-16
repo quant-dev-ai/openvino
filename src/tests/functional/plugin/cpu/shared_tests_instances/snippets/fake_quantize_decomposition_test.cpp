@@ -1,4 +1,3 @@
-
 // Copyright (C) 2022 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,26 +18,12 @@ const std::vector<TestValues> testValuesDecomposition = {
         ngraph::Shape{1, 3, 16, 16},
         ov::element::f32,
         1.f,
-        {{1, 3, 1, 1}, {1, 3, 1, 1}, {}, {}}
-    },
-    {
-        ov::element::f32,
-        ngraph::Shape{1, 3, 16, 16},
-        ov::element::f32,
-        1.f,
-        {{}, {}, {1, 3, 1, 1}, {1, 3, 1, 1}}
-    },
-    {
-        ov::element::f32,
-        ngraph::Shape{1, 3, 16, 16},
-        ov::element::f32,
-        1.f,
-        {{1, 3, 1, 1}, {1, 3, 1, 1}, {1, 3, 1, 1}, {1, 3, 1, 1}}
-    },
+        {{1, 3, 16, 16}, {1, 3, 16, 16}, {1, 3, 16, 16}, {1, 3, 16, 16}}
+    }
 };
 
 std::vector<std::pair<std::shared_ptr<Node>, std::pair<std::string, std::string>>> operations = {
-    {std::make_shared<ngraph::opset1::Parameter>(), {"FakeQuantize", "fakeQuantize"}},
+    {std::make_shared<ngraph::opset1::Parameter>(), {"Subgraph", "fakeQuantize/DequantizationSubtract,fakeQuantize"}},
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -47,7 +32,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(
         ::testing::ValuesIn(testValuesDecomposition),
         ::testing::ValuesIn(operations),
-        ::testing::Values(std::pair<size_t, size_t>{2, 0}),
+        ::testing::Values(std::pair<size_t, size_t>{13, 1}),
         ::testing::Values(CommonTestUtils::DEVICE_CPU)),
     FakeQuantizeDecompositionTest::getTestCaseName);
 }  // namespace decompositionIgnore
@@ -89,7 +74,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(
         ::testing::ValuesIn(testValuesDecomposition),
         ::testing::ValuesIn(operations),
-        ::testing::Values(std::pair<size_t, size_t>{2, 1}),
+        ::testing::Values(std::pair<size_t, size_t>{4, 1}),
         ::testing::Values(CommonTestUtils::DEVICE_CPU)),
     FakeQuantizeDecompositionTest::getTestCaseName);
 }  // namespace decompositionInSubgraph
@@ -137,7 +122,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(
         ::testing::ValuesIn(testValuesLegacyFuse),
         ::testing::ValuesIn(operations),
-        ::testing::Values(std::pair<size_t, size_t>{5, 0}), //Pooling + 2 * Reorder + Convolution
+        ::testing::Values(std::pair<size_t, size_t>{6, 0}), //Pooling + 2 * Reorder + Convolution
         ::testing::Values(CommonTestUtils::DEVICE_CPU)),
     FakeQuantizeDecompositionTest::getTestCaseName);
 

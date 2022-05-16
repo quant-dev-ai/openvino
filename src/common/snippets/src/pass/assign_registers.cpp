@@ -12,6 +12,91 @@
 #include <ngraph/opsets/opset1.hpp>
 
 #include <iterator>
+#include <openvino/runtime/exception.hpp>
+
+namespace {
+const std::vector<size_t> get_registers(const std::shared_ptr<ngraph::Node>& node) {
+    auto &rt = node->get_rt_info();
+    auto it = rt.find("reginfo");
+    if (it == rt.end()) {
+        return {};
+    }
+
+    auto &registers = it->second.as<std::vector<size_t>>();
+    return registers;
+}
+
+size_t get_max_register(const std::shared_ptr<ov::Model>& f) {
+    auto max_register = 0ul;
+    for (const auto& n : f->get_ordered_ops()) {
+        auto registers = get_registers(n);
+        for (const auto reg : registers) {
+            if (max_register < reg) {
+                max_register = reg;
+            }
+        }
+    }
+    return max_register;
+}
+
+size_t get_max_constant_register(const std::shared_ptr<ov::Model>& f) {
+    auto max_register = 0ul;
+    for (const auto& n : f->get_ordered_ops()) {
+        if (!ngraph::is_type<ngraph::opset1::Constant>(n)) {
+            continue;
+        }
+
+        auto registers = get_registers(n);
+        for (const auto reg : registers) {
+            if (max_register < reg) {
+                max_register = reg;
+            }
+        }
+    }
+    return max_register;
+}
+
+void fix_concatenation(const std::shared_ptr<ngraph::Node>& node, const size_t register_number) {
+    auto& rt = node->get_rt_info();
+    auto it = rt.find("reginfo");
+    if (it == rt.end()) {
+        throw ov::Exception("register is absent");
+    }
+
+    auto& registers = it->second.as<std::vector<size_t>>();
+    if (registers.size() != 1ul) {
+        throw ov::Exception("unexpected registers count");
+    }
+
+    registers[0] = register_number;
+}
+
+void fix_concatenation_up(const std::shared_ptr<ngraph::Node>& node, const size_t register_number) {
+    if (!ngraph::is_type<ngraph::snippets::op::BroadcastMove>(node) && !ngraph::is_type<ngraph::snippets::op::Load>(node)) {
+        return;
+    }
+
+    fix_concatenation(node, register_number);
+
+    fix_concatenation_up(node->get_input_node_shared_ptr(0), register_number);
+}
+
+void fix_concatenation_down(const std::shared_ptr<ngraph::Node>& node, const size_t register_number) {
+    for (auto output : node->outputs()) {
+        const auto& target_inputs = output.get_target_inputs();
+        for (auto target_input : target_inputs) {
+            auto target_node = target_input.get_node()->shared_from_this();
+            if (!ngraph::is_type<ngraph::snippets::op::BroadcastMove>(target_node) && !ngraph::is_type<ngraph::snippets::op::Load>(target_node)) {
+                return;
+            }
+
+            fix_concatenation(target_node, register_number);
+
+            fix_concatenation_down(target_node, register_number);
+        }
+    }
+}
+} // namespace
 
 bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr<ov::Model>& f) {
     RUN_ON_FUNCTION_SCOPE(AssignRegisters);
@@ -139,6 +224,27 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
         physical_regs[reg.first] = register_map[reg.second];
     }
     const auto num_parameters = f->get_parameters().size();
+
+    auto as_parameter = [](const std::shared_ptr<Node>& source) -> std::shared_ptr<opset1::Parameter> {
+        auto parameter = ov::as_type_ptr<opset1::Parameter>(source);
+        if (parameter != nullptr) {
+            return parameter;
+        }
+
+        const auto split = ov::as_type_ptr<opset1::Split>(source);
+        if (split == nullptr) {
+            return nullptr;
+        }
+
+        // TODO: should check if parameter is assigned with Constant
+        parameter = ov::as_type_ptr<opset1::Parameter>(split->get_input_node_shared_ptr(0));
+        if (parameter == nullptr) {
+            return nullptr;
+        }
+
+        return parameter;
+    };
+
     for (const auto& n : f->get_ordered_ops()) {
         auto& rt = n->get_rt_info();
         std::vector<size_t> regs;
@@ -151,7 +257,7 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
          */
         if (is_type<ov::op::v0::Result>(n)) {
             continue;
-        } else if (const auto& param = ov::as_type_ptr<ov::op::v0::Parameter>(n)) {
+        } else if (const auto& param = as_parameter(n)) {
             regs.push_back(f->get_parameter_index(param));
         } else if (const auto& store = ov::as_type_ptr<ngraph::snippets::op::Store>(n)) {
             regs.push_back(f->get_result_index(store) + num_parameters);
@@ -161,8 +267,176 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
                 regs.push_back(allocated);
             }
         }
+
         rt["reginfo"] = regs;
     }
+
+    // TODO: snippets fix
+    //for (const auto& n : f->get_ordered_ops()) {
+    //    auto& rt = n->get_rt_info();
+    //    auto it = rt.find("reginfo");
+    //    if (it == rt.end()) {
+    //        continue;
+    //    }
+    //
+    //    auto regs = it->second.as<std::vector<size_t>>();
+    //    const auto& outputs = n->outputs();
+    //    for (auto i = 0; i < outputs.size(); ++i) {
+    //        const auto& target_inputs = outputs[i].get_target_inputs();
+    //        if (target_inputs.size() != 1ul) {
+    //            // TODD: snippets: not supported
+    //            continue;
+    //        }
+    //
+    //        auto target = target_inputs.begin()->get_node();
+    //    }
+    //}
+
+
+
+
+
+    auto is_concatenation_split = [](const std::shared_ptr<Node>& n) {
+        if (is_type<opset1::Split>(n) &&
+            is_type<opset1::Parameter>(n->get_input_node_shared_ptr(0)) &&
+            is_type<opset1::Constant>(n->get_input_node_shared_ptr(1))) {
+            auto get_child = [](const ngraph::Output<Node>& output) -> ngraph::Node* {
+                const auto& target_inputs = output.get_target_inputs();
+                if (target_inputs.size() > 1ul) {
+                    return nullptr;
+                }
+                return target_inputs.begin()->get_node();
+            };
+
+            for (const auto output : n->outputs()) {
+                const auto& load = as_type<snippets::op::Load>(get_child(output));
+                if (load == nullptr) {
+                    return false;
+                }
+
+                const auto& broadcast_move = as_type<snippets::op::BroadcastMove>(get_child(load->output(0)));
+                if (broadcast_move == nullptr) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        return false;
+    };
+
+
+    size_t max_register = -1;
+    for (const auto& n : f->get_ordered_ops()) {
+        if (is_concatenation_split(n)) {
+            if (max_register == -1) {
+                max_register = get_max_register(f);
+            }
+            max_register++;
+            fix_concatenation_down(n, max_register);
+        }
+    }
+
+    size_t max_constant_register = -1;
+    for (const auto& n : f->get_ordered_ops()) {
+        const auto input_size = n->get_input_size();
+        if (input_size == 1ul) {
+            continue;
+        }
+
+        std::unordered_map<size_t, std::shared_ptr<Node>> register_by_parent_node;
+        for (auto i = 0; i < input_size; ++i) {
+            const auto& source_output = n->input(i).get_source_output();
+            const auto index = source_output.get_index();
+            const auto& source = source_output.get_node_shared_ptr();
+
+            auto& rt = source->get_rt_info();
+            auto it = rt.find("reginfo");
+            if (it == rt.end()) {
+                continue;
+            }
+
+            auto source_registers = it->second.as<std::vector<size_t>>();
+            auto source_register = source_registers[index];
+
+            auto existing_it = register_by_parent_node.find(source_register);
+            if (existing_it != register_by_parent_node.end()) {
+                if (max_constant_register == -1) {
+                    // 7ul
+                    max_constant_register = get_max_constant_register(f);
+                }
+                max_constant_register++;
+                fix_concatenation(source, max_constant_register);
+            }
+
+            register_by_parent_node.emplace(source_register, source);
+        }
+    }
+
+
+
+
+
+    //auto is_concatenation_load = [](const std::shared_ptr<Node>& node) -> bool {
+    //    if (!ngraph::is_type<snippets::op::BroadcastMove>(node)) {
+    //        return false;
+    //    }
+    //
+    //    const auto load = node->get_input_source_output(0).get_node_shared_ptr();
+    //    if (!ngraph::is_type<snippets::op::Load>(load)) {
+    //        return false;
+    //    }
+    //
+    //    const auto split = load->get_input_source_output(0).get_node_shared_ptr();
+    //    if (!ngraph::is_type<opset1::Split>(split)) {
+    //        return false;
+    //    }
+    //
+    //    return true;
+    //};
+    //
+    //for (const auto& n : f->get_ordered_ops()) {
+    //    const auto input_size = n->get_input_size();
+    //    if (input_size == 1ul) {
+    //        continue;
+    //    }
+    //
+    //    std::unordered_map<size_t, std::shared_ptr<Node>> register_by_parent_node;
+    //    for (auto i = 0; i < input_size; ++i) {
+    //        const auto& source_output = n->input(i).get_source_output();
+    //        const auto index = source_output.get_index();
+    //        const auto& source = source_output.get_node_shared_ptr();
+    //        if (ngraph::is_type<opset1::Constant>(source)) {
+    //            continue;
+    //        }
+    //
+    //        auto& rt = source->get_rt_info();
+    //        auto it = rt.find("reginfo");
+    //        if (it == rt.end()) {
+    //            continue;
+    //        }
+    //
+    //        auto source_registers = it->second.as<std::vector<size_t>>();
+    //        auto source_register = source_registers[index];
+    //
+    //        auto existing_it = register_by_parent_node.find(source_register);
+    //        if (existing_it != register_by_parent_node.end()) {
+    //            auto source2 = existing_it->second;
+    //
+    //            if (is_concatenation_load(source)) {
+    //                // TODO: snippets: workaround
+    //                fix_concatenation_down(source, 5ul);
+    //            } else if (is_concatenation_load(source2)) {
+    //                // TODO: snippets: workaround
+    //                fix_concatenation_down(source2, 5ul);
+    //            } else {
+    //                throw ov::Exception("unexpected parents");
+    //            }
+    //        }
+    //
+    //        register_by_parent_node.emplace(source_register, source);
+    //    }
+    //}
 
     return false;
 }

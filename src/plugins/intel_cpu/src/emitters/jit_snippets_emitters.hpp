@@ -283,10 +283,12 @@ private:
               const ov::intel_cpu::emitter_context *emit_context) const override;
 
     template <dnnl::impl::cpu::x64::cpu_isa_t isa>
+
     void emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const;
 
 private:
     bool shouldPostIncrement;
+    size_t offset;
 };
 
 class BroadcastLoadEmitter : public MemoryEmitter {
@@ -324,5 +326,104 @@ private:
 private:
     bool shouldPostIncrement;
 };
+
+//class SplitLoadEmitter : public MemoryEmitter {
+//public:
+//    SplitLoadEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa, const std::shared_ptr<ov::Node>& n)
+//    : MemoryEmitter(h, isa, n), shouldPostIncrement(*n->get_input_shape(0).rbegin() != 1), axis(-1) {
+//        // TODO: just to debug
+//        auto b = *n->get_input_shape(0).rbegin();
+//        if (b == 0) {
+//            return;
+//        }
+//        auto input_shape = n->get_input_shape(0);
+//        if (shape_size(input_shape) == 0) {
+//            return;
+//        }
+//
+//        auto axis_constant = ov::as_type_ptr<ngraph::opset1::Constant>(n->get_input_node_shared_ptr(1));
+//        if ((axis_constant == nullptr) || (shape_size(axis_constant->get_shape()) != 1ul)) {
+//            return;
+//        }
+//
+//        auto values = axis_constant->get_vector<int>();
+//        if (axis_constant->get_vector<int>().size() != 1ul) {
+//            return;
+//        }
+//        axis = values[0];
+//
+//        offsets.resize(n->get_output_size() - 1ul);
+//        for (auto i = 0; i < (n->get_output_size() - 1); ++i) {
+//            auto shape = n->output(0).get_partial_shape();
+//            if (shape.is_dynamic()) {
+//                return;
+//            }
+//            // TODO: workaround: 4 bytes are used
+//            offsets[i] = shape_size(shape.get_shape()) * 4;
+//        }
+//    }
+//
+//    size_t get_inputs_num() const override {
+//        return 2;
+//    }
+//
+//private:
+//    void emit_impl(const std::vector<size_t>& in,
+//                   const std::vector<size_t>& out,
+//                   const std::vector<size_t>& pool,
+//                   const std::vector<size_t>& gpr,
+//                   const ov::intel_cpu::emitter_context *emit_context) const override {
+//        if (host_isa_ == dnnl::impl::cpu::x64::sse41) {
+//            emit_isa<dnnl::impl::cpu::x64::sse41>(in, out);
+//        } else if (host_isa_ == dnnl::impl::cpu::x64::avx2) {
+//            emit_isa<dnnl::impl::cpu::x64::avx2>(in, out);
+//        } else if (host_isa_ == dnnl::impl::cpu::x64::avx512_common) {
+//            emit_isa<dnnl::impl::cpu::x64::avx512_common>(in, out);
+//        } else {
+//            IE_THROW() << host_isa_;
+//            assert(!"unsupported isa");
+//        }
+//    }
+//
+//    template <dnnl::impl::cpu::x64::cpu_isa_t isa>
+//    void emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+//        if (offsets.empty()) {
+//            IE_THROW() << "offsets are not set";
+//        }
+//
+//        // TODO: check axis here
+//
+//        using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
+//        Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
+//        Reg64 in_reg(in[0]);
+//        auto increased = 0ul;
+//        const auto out_size = out.size();
+//
+//        for (auto i = 0; i < out_size; ++i) {
+//            Vmm vmm_out = Vmm(out[i]);
+//
+//            auto ptr = h->ptr[in_reg];
+//            h->uni_vmovups(vmm_out, ptr);
+//
+//            if (i < (out_size - 1)) {
+//                increased += offsets[i];
+//                h->add(in_reg, offsets[i]);
+//            }
+//        }
+//
+//        if (shouldPostIncrement) {
+//            auto size = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+//            increased -= size;
+//        }
+//
+//        h->sub(in_reg, increased);
+//    }
+//
+//private:
+//    bool shouldPostIncrement;
+//    size_t axis;
+//    std::vector<size_t> offsets;
+//};
+
 }   // namespace intel_cpu
 }   // namespace ov

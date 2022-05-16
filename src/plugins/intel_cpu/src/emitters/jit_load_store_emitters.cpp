@@ -114,6 +114,10 @@ void jit_load_emitter::emit_isa(const Xbyak::Reg64 &reg_src, int offset_byte, In
                 break;
         }
     }
+
+    // TODO: snippets: just to debug: 10
+    Vmm vmm_divider = Vmm(10);
+    h->uni_vmovups(vmm_divider, vmm_divider);
 }
 
 /**
