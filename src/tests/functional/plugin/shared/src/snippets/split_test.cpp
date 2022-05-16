@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "snippets/fake_quantize_decomposition_test.hpp"
+#include "snippets/split_test.hpp"
 
 #include <memory>
 #include <tuple>
@@ -12,12 +12,12 @@
 
 #include <ie_core.hpp>
 #include "ngraph_ops/type_relaxed.hpp"
-#include "fake_quantize_function.hpp"
+#include "split_function.hpp"
 #include "function_helper.hpp"
 
 namespace LayerTestsDefinitions {
 
-std::string FakeQuantizeDecompositionTest::getTestCaseName(testing::TestParamInfo<testsParams> obj) {
+std::string SplitTest::getTestCaseName(testing::TestParamInfo<testsParams> obj) {
     std::ostringstream result;
     const auto values = std::get<0>(obj.param);
     const auto operation = std::get<1>(obj.param);
@@ -36,13 +36,19 @@ std::string FakeQuantizeDecompositionTest::getTestCaseName(testing::TestParamInf
     result << "OP=" << operationString << "_";
     result << "ON1=" << std::string(operation.second.first) << "_";
     result << "ON1=" << std::string(operation.second.second) << "_";
-    result << "LP=" << values.zeroPoint;
-    result << "SH1=" << values.fakeQuantizeShapes[0] << "SH2=" << values.fakeQuantizeShapes[1]
-           << "SH3=" << values.fakeQuantizeShapes[2] << "SH4=" << values.fakeQuantizeShapes[3];
+    result << "NN=" << values.num_nodes;
+    for (auto i = 0; i < values.constantShapes.size(); ++i) {
+        result << "_SH" << i << "=" << values.constantShapes[i];
+    }
     return result.str();
 }
 
-void FakeQuantizeDecompositionTest::SetUp() {
+void SplitTest::SetUp() {
+    // TODO: why is default abs_threshold value 385.25 ???
+    abs_threshold = 0.01;
+    // TODO: why is default rel_threshold value 1.79769e+308
+    rel_threshold = 0.01;
+
     auto& testsParams = this->GetParam();
 
     const auto values = std::get<0>(testsParams);
@@ -56,25 +62,27 @@ void FakeQuantizeDecompositionTest::SetUp() {
     init_input_shapes({{values.inputShape, {values.inputShape}}});
 
     std::shared_ptr<ngraph::Node> op = ngraph::is_type<ngraph::opset1::Parameter>(operation.first) ? nullptr : operation.first;
-    function = ov::test::snippets::FakeQuantizeFunction::getOperationAndFakeQuantize(
+    function = ov::test::snippets::SplitFunction::get(
         {values.inputShape},
         values.inputType,
-        values.fakeQuantizeShapes,
-        values.zeroPoint,
+        values.constantShapes,
         ov::test::snippets::FunctionHelper::makePrerequisitesOriginal(),
         op);
 
-    ngraph::pass::VisualizeTree("svg/cpu.actual.svg").run_on_model(function);
+    ngraph::pass::VisualizeTree("svg/test.actual.svg").run_on_model(function);
 }
 
-TEST_P(FakeQuantizeDecompositionTest, CompareWithRefImpl) {
-    run();
+void SplitTest::run() {
+    SubgraphBaseTest::run();
 
-    const auto operation = std::get<1>(this->GetParam());
-    auto elementType = std::string(operation.second.first);
-    validateOriginalLayersNamesByType(elementType, operation.second.second);
-
+    const auto params = std::get<0>(GetParam());
+    this->ref_num_nodes = params.num_nodes;
+    this->ref_num_subgraphs = params.num_subgraphs;
     validateNumSubgraphs();
+}
+
+TEST_P(SplitTest, CompareWithRefImpl) {
+    run();
 };
 
 }  // namespace LayerTestsDefinitions

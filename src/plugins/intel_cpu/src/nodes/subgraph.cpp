@@ -185,9 +185,26 @@ void Snippet::execute(dnnl::stream strm) {
     if (schedule.ptr == nullptr || !canUseOptimizedImpl) {
         IE_THROW() << "Snippet can't use Optimized implementation and can't fallback to reference";
     }
+
+    // TODO: debug only
+//    auto display = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs) {
+//        for (size_t i = 0; i < memPtrs.size(); i++) {
+//            float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
+//            auto shape = memPtrs[i]->GetShape().getDims();
+//            std::cout << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
+//            const auto shape_size = i == 1 ? 16ul : ngraph::shape_size(shape);
+//            for (auto j = 0; j < shape_size; j++) {
+//                std::cout << j << " = " << value[j] << std::endl;
+//            }
+//        }
+//    };
+
     jit_snippets_call_args call_args;
     for (size_t i = 0; i < srcMemPtrs.size(); i++)
         call_args.src_ptrs[i] = reinterpret_cast<const uint8_t*>(srcMemPtrs[i]->GetData()) + start_offset_in[i];
+
+//    std::cout << "srcMemPtrs.size() = " << srcMemPtrs.size() << std::endl;
+//    display(srcMemPtrs);
 
     for (size_t i = 0; i < dstMemPtrs.size(); i++)
         call_args.dst_ptrs[i] = reinterpret_cast<uint8_t*>(dstMemPtrs[i]->GetData()) + start_offset_out[i];
@@ -197,6 +214,9 @@ void Snippet::execute(dnnl::stream strm) {
     } else {
         schedule_nt(call_args);
     }
+
+//    std::cout << "dstMemPtrs.size() = " << dstMemPtrs.size() << std::endl;
+//    display(dstMemPtrs);
 }
 
 bool Snippet::created() const {
@@ -265,8 +285,13 @@ void Snippet::define_schedule() {
         return result;
     };
     ngraph::snippets::op::Subgraph::BlockedShapeVector input_blocked_shapes;
-    for (size_t i = 0; i < inputShapes.size(); i++)
-        input_blocked_shapes.push_back(edgeToBlockedShape(getParentEdgesAtPort(i)[0]));
+    for (size_t i = 0; i < inputShapes.size(); i++) {
+        auto parent_edges = getParentEdgesAtPort(i);
+        auto parent_edge = parent_edges[0];
+        // TODO: here
+        auto blocked_shape = edgeToBlockedShape(parent_edge);
+        input_blocked_shapes.push_back(blocked_shape);
+    }
 
     ngraph::snippets::op::Subgraph::BlockedShapeVector output_blocked_shapes;
     for (size_t i = 0; i < outputShapes.size(); i++)
@@ -426,10 +451,30 @@ void Snippet::generate() {
         canUseOptimizedImpl = false;
         harness_num_dims = SNIPPETS_MAX_HARNESS_DIMS;
     }
+
+//    // TODO: debug only
+//    auto display = [&]() {
+//        std::cout << "jcp.data_offsets: " << std::endl;
+//        for (auto i = 0; i < SNIPPETS_MAX_SNIPPETS_DIMS * SNIPPETS_MAX_HARNESS_DIMS; ++i) {
+//            std::cout << "i: " << i << ": " << jcp.data_offsets[i] << std::endl;
+//        }
+//    };
+
     for (size_t i = 0; i < inputShapes.size(); i++) {
+    //for (size_t i = 0; i < (inputShapes.size() - 1); i++) {
         auto b = offsets_in[i].begin();
+
+        // TODO: debug only
+//        auto value_b = *b;
+//        std::cout << "DEBUG: begin: " << value_b << ", end: " << value_b + harness_num_dims << std::endl;
+
+        // jcp.data_offsets[for constant] = 0
         std::copy(b, b + harness_num_dims, &jcp.data_offsets[i * harness_num_dims]);
+
+        // TODO: debug only
+        //display();
     }
+
     for (size_t i = 0; i < outputShapes.size(); i++) {
         auto b = offsets_out[i].begin();
         std::copy(b, b + harness_num_dims, &jcp.data_offsets[(inputShapes.size() + i) * harness_num_dims]);
@@ -443,6 +488,11 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
     parallel_for5d(dom[0], dom[1], dom[2], dom[3], dom[4],
         [&](int64_t d0, int64_t d1, int64_t d2, int64_t d3, int64_t d4) {
             int64_t indexes[] = {d0, d1, d2, d3, d4};
+            // TODO: debug only
+            if ((d0 == 0) && (d1 == 1) && (d2 == 0) && (d3 == 0) && (d4 == 0)) {
+                std::cout << "DEBUG: batch #2" << std::endl;
+            }
+            std::cout << "d0=" << d0 << ", d1=" << d1 << ", d2=" << d2 << ", d3=" << d3 << ", d4=" << d4 << std::endl;
             auto callable = schedule.get_callable<kernel>();
             callable(indexes, &call_args);
         });

@@ -139,6 +139,27 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
         physical_regs[reg.first] = register_map[reg.second];
     }
     const auto num_parameters = f->get_parameters().size();
+
+    auto as_parameter = [](const std::shared_ptr<Node>& source) -> std::shared_ptr<opset1::Parameter> {
+        auto parameter = ov::as_type_ptr<opset1::Parameter>(source);
+        if (parameter != nullptr) {
+            return parameter;
+        }
+
+        const auto split = ov::as_type_ptr<opset1::Split>(source);
+        if (split == nullptr) {
+            return nullptr;
+        }
+
+        // TODO: should check if parameter is assigned with Constant
+        parameter = ov::as_type_ptr<opset1::Parameter>(split->get_input_node_shared_ptr(0));
+        if (parameter == nullptr) {
+            return nullptr;
+        }
+
+        return parameter;
+    };
+
     for (const auto& n : f->get_ordered_ops()) {
         auto& rt = n->get_rt_info();
         std::vector<size_t> regs;
@@ -151,7 +172,7 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
          */
         if (is_type<ov::op::v0::Result>(n)) {
             continue;
-        } else if (const auto& param = ov::as_type_ptr<ov::op::v0::Parameter>(n)) {
+        } else if (const auto& param = as_parameter(n)) {
             regs.push_back(f->get_parameter_index(param));
         } else if (const auto& store = ov::as_type_ptr<ngraph::snippets::op::Store>(n)) {
             regs.push_back(f->get_result_index(store) + num_parameters);
@@ -161,6 +182,30 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
                 regs.push_back(allocated);
             }
         }
+
+        // TODO: workaround: just to test
+//        if (ov::is_type<opset1::Add>(n)) {
+//            rt["reginfo"] = std::vector<size_t>{ 2ul };
+//        } else {
+//            rt["reginfo"] = regs;
+//        }
+
+        // TODO: workaround: just to test
+//        if (n->get_friendly_name() == "BroadcastMove_2903") {
+//            rt["reginfo"] = std::vector<size_t>{ 0ul };
+//            continue;
+//        }
+//
+//        if (n->get_friendly_name() == "Load_2899") {
+//            rt["reginfo"] = std::vector<size_t>{ 2ul };
+//            continue;
+//        }
+//
+//        if (n->get_friendly_name() == "Load_2900") {
+//            rt["reginfo"] = std::vector<size_t>{ 1ul };
+//            continue;
+//        }
+
         rt["reginfo"] = regs;
     }
 

@@ -404,6 +404,9 @@ void Graph::InitGraph() {
     ExtractConstantAndExecutableNodes();
 
     ExecuteConstantNodesOnly();
+
+    // TODO: debug only
+    //serialize(*this, "/Users/eshoguli/projects/temp/graph_init_graph.xml");
 }
 
 void Graph::InitNodes() {
