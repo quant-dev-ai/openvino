@@ -22,24 +22,26 @@ namespace snippets {
 namespace pass {
 
 namespace {
-void parameters_to_constants(std::shared_ptr<ov::Model>& body, const std::unordered_map<std::string, std::shared_ptr<opset1::Constant>>& constant_input_ids) {
-    auto ops = body->get_ops();
-    for (auto& op : ops) {
-        auto parameter = as_type_ptr<ngraph::opset1::Parameter>(op);
+void parameters_to_constants(
+        const std::shared_ptr<ov::Model>& body,
+        const std::unordered_map<std::string, std::shared_ptr<opset1::Constant>>& constant_input_ids) {
+    const auto ops = body->get_ops();
+    for (const auto& op : ops) {
+        const auto parameter = as_type_ptr<ngraph::opset1::Parameter>(op);
         if (parameter == nullptr) {
             continue;
         }
 
-        auto it = constant_input_ids.find(parameter->get_friendly_name());
+        const auto it = constant_input_ids.find(parameter->get_friendly_name());
         if (it == constant_input_ids.end()) {
             continue;
         }
 
         const auto& subgraph_constant = it->second;
-        auto body_constant = subgraph_constant->clone_with_new_inputs({});
+        const auto body_constant = subgraph_constant->clone_with_new_inputs({});
 
         body_constant->set_friendly_name(parameter->get_friendly_name());
-        for (auto input : parameter->output(0).get_target_inputs()) {
+        for (const auto input : parameter->output(0).get_target_inputs()) {
             input.replace_source_output(body_constant->output(0));
         }
 
@@ -49,9 +51,9 @@ void parameters_to_constants(std::shared_ptr<ov::Model>& body, const std::unorde
 }
 
 void constants_to_parameters(
-    std::shared_ptr<ngraph::snippets::op::Subgraph>& subgraph,
-    std::shared_ptr<ov::Model>& body,
-    const std::unordered_map<std::string, std::shared_ptr<opset1::Parameter>>& parameter_input_ids) {
+        const std::shared_ptr<ngraph::snippets::op::Subgraph>& subgraph,
+        const std::shared_ptr<ov::Model>& body,
+        const std::unordered_map<std::string, std::shared_ptr<opset1::Parameter>>& parameter_input_ids) {
     std::vector<ngraph::Output<Node>> new_inputs;
     new_inputs.reserve(subgraph->get_input_size());
     for (auto i = 0; i < subgraph->get_input_size(); ++i) {
@@ -62,17 +64,17 @@ void constants_to_parameters(
     }
 
     auto ops = body->get_ops();
-    for (auto& op : ops) {
-        auto constant = as_type_ptr<ngraph::opset1::Constant>(op);
+    for (const auto& op : ops) {
+        const auto constant = as_type_ptr<ngraph::opset1::Constant>(op);
         if ((constant == nullptr) || (ngraph::shape_size(constant->get_output_shape(0)) == 1ul)) {
             continue;
         }
 
         new_inputs.push_back(constant);
-        auto parameter = std::make_shared<opset1::Parameter>(constant->get_element_type(), constant->output(0).get_partial_shape());
+        const auto parameter = std::make_shared<opset1::Parameter>(constant->get_element_type(), constant->output(0).get_partial_shape());
 
         parameter->set_friendly_name(constant->get_friendly_name());
-        for (auto input : constant->output(0).get_target_inputs()) {
+        for (const auto input : constant->output(0).get_target_inputs()) {
             input.replace_source_output(parameter->output(0));
         }
 

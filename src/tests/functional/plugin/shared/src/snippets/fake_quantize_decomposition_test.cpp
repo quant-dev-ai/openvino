@@ -43,6 +43,10 @@ std::string FakeQuantizeDecompositionTest::getTestCaseName(testing::TestParamInf
 }
 
 void FakeQuantizeDecompositionTest::SetUp() {
+    // not initialized by default
+    abs_threshold = 0.01;
+    rel_threshold = 0.01;
+
     auto& testsParams = this->GetParam();
 
     const auto values = std::get<0>(testsParams);

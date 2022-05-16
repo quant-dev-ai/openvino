@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <array>
 
 using namespace std;
 using namespace ngraph;
@@ -223,7 +222,6 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     auto skip_matching_domain = [](const std::shared_ptr<const ov::Node>& n) -> bool {
         return n->get_input_shape(0).back() != 1;
     };
-
     ngraph::pass::Manager manager;
     manager.register_pass<snippets::pass::ConvertConstants>();
     manager.register_pass<snippets::pass::ConvertPowerToPowerStatic>();

@@ -318,6 +318,8 @@ bool SnippetsMarkSkipped::run_on_model(const std::shared_ptr<ov::Model> &m) {
             SetNodeFusingType(node, NodeFusingType::FusedWithMisc);
         } else if (isSuitableMatMulParent(node)) {
             SetNodeFusingType(node, NodeFusingType::FusedWithMatMul);
+        } else if (ov::is_type<ngraph::op::v1::Split>(node)) {
+            SetNodeFusingType(node, NodeFusingType::FusedWithMisc);
         } else {
             for (const auto fusingChainType : getContinuableChains(node)) {
                 if (isSuitableChildForFusingSimple(node)) {
