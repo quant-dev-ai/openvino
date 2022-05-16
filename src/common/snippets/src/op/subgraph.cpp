@@ -14,6 +14,8 @@
 #include "snippets/pass/convert_power_to_powerstatic.hpp"
 #include "snippets/pass/vector_to_scalar.hpp"
 
+#include "ngraph/pass/visualize_tree.hpp"
+
 #include <ngraph/pass/manager.hpp>
 #include <openvino/pass/serialize.hpp>
 
@@ -127,6 +129,9 @@ auto snippets::op::Subgraph::wrap_node_as_subgraph(const std::shared_ptr<ov::Nod
 ///             * Planar + blocked: some inputs have blocked, and some have planar layouts, e.g. <N, C, H, W, c> + <N, C, H, W>
 Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShapes, const BlockedShapeVector& inputShapes) {
     INTERNAL_OP_SCOPE(Subgraph);
+
+    ngraph::pass::VisualizeTree("svg/cpu.transforming6.svg").run_on_model(m_body);
+
     OV_ITT_SCOPED_TASK(ngraph::pass::itt::domains::SnippetsTransform, "Snippets::canonicalize")
     NODE_VALIDATION_CHECK(this, inputShapes.size() == m_body->get_parameters().size(),
         "Number of parameters for snippet doesn't match passed to generate method: ", inputShapes.size(), " vs ", m_body->get_parameters().size(), ".");
@@ -172,6 +177,13 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
                                   "Snippets canonicalization got input shapes of equal ranks but different layouts, which is not supported");
         }
         ov::PartialShape tmpPShape(baseShape);
+        std::cout << "baseShape=" << baseShape << std::endl;
+
+        const auto tmp_res = PartialShape::broadcast_merge_into(tmpPShape, inShape, ::ngraph::op::AutoBroadcastType::NUMPY);
+        std::cout << "tmp_res=" << tmp_res << std::endl;
+        std::cout << "dst=" << tmpPShape << std::endl;
+        std::cout << "src=" << inShape << std::endl << std::endl;
+
         NODE_VALIDATION_CHECK(this,
                               PartialShape::broadcast_merge_into(tmpPShape, inShape, ::ngraph::op::AutoBroadcastType::NUMPY),
                               "Failed to create broadcastable shapes in snippets canonicalization");
@@ -181,6 +193,9 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
     }
 
     m_body->validate_nodes_and_infer_types();
+
+    ngraph::pass::VisualizeTree("svg/cpu.transforming7.svg").run_on_model(m_body);
+
     auto skipStartEndOnes = [](const Shape& shape) {
         auto begin = shape.begin();
         auto end = shape.end();

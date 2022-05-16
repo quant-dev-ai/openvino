@@ -84,6 +84,7 @@
 #include <snippets/pass/collapse_subgraph.hpp>
 #include <snippets/pass/common_optimizations.hpp>
 #include <snippets/pass/constant_folding.hpp>
+#include <snippets/pass/concatenate_constants.hpp>
 #include "ngraph_transformations/snippets_mark_skipped.hpp"
 #include <transformations/op_conversions/convert_roi_align_v9_to_v3.hpp>
 #include <transformations/op_conversions/convert_roi_align_v3_to_v9.hpp>
@@ -181,6 +182,8 @@ Engine::~Engine() {
 
 static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function> nGraphFunc, const bool _enableLPT,
                                                const bool _enableSnippets, const bool isLegacyApi) {
+    ngraph::pass::VisualizeTree("svg/cpu.original.svg").run_on_model(nGraphFunc);
+
     ngraph::pass::Manager manager;
     manager.set_per_pass_validation(false);
     manager.register_pass<ngraph::pass::InitNodeInfo>();
@@ -503,6 +506,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         lptManager.run_passes(nGraphFunc);
     }
 
+    ngraph::pass::VisualizeTree("svg/cpu.common.svg").run_on_model(nGraphFunc);
+
     ngraph::pass::Manager postLPTPassManager;
     postLPTPassManager.register_pass<ngraph::pass::UnrollTensorIterator>();
     postLPTPassManager.register_pass<ReshapePRelu>();
@@ -522,15 +527,17 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
     postLPTPassManager.run_passes(nGraphFunc);
 
     if (_enableSnippets && dnnl::impl::cpu::x64::mayiuse(dnnl::impl::cpu::x64::avx2)) {
+        ngraph::pass::VisualizeTree("svg/cpu.snippets.original.svg").run_on_model(nGraphFunc);
+
         ngraph::pass::Manager tokenization_manager;
         tokenization_manager.register_pass<SnippetsMarkSkipped>();
         tokenization_manager.register_pass<ngraph::snippets::pass::EnumerateNodes>();
         tokenization_manager.register_pass<ngraph::snippets::pass::TokenizeSnippets>();
         tokenization_manager.get_pass_config()->set_callback<ngraph::snippets::pass::TokenizeSnippets>(
                 [](const std::shared_ptr<const ov::Node>& n) -> bool {
-                    if (ngraph::is_type<ngraph::opset1::FakeQuantize>(n) && !ngraph::pass::FakeQuantizeDecomposition::isAllScalarConstant(n)) {
-                        return true;
-                    }
+                    //if (ngraph::is_type<ngraph::opset1::FakeQuantize>(n) && !ngraph::pass::FakeQuantizeDecomposition::isAllScalarConstant(n)) {
+                    //    return true;
+                    //}
 
                     const auto& inputs = n->inputs();
                     // todo: clarify whether we can evaluate snippets on const paths
@@ -553,6 +560,17 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         tokenization_manager.register_pass<ngraph::snippets::pass::CommonOptimizations>();
         tokenization_manager.register_pass<ngraph::snippets::pass::ConstantFolding>();
         tokenization_manager.run_passes(nGraphFunc);
+
+        ngraph::pass::VisualizeTree("svg/cpu.snippets.transformed.svg").run_on_model(nGraphFunc);
+
+        ngraph::pass::VisualizeTree("svg/cpu.transforming1.svg").run_on_model(nGraphFunc);
+        {
+            ngraph::pass::Manager tokenization_manager;
+            tokenization_manager.set_per_pass_validation(false);
+            tokenization_manager.register_pass<ngraph::snippets::pass::ConcatenateConstants>();
+            tokenization_manager.run_passes(nGraphFunc);
+        }
+        ngraph::pass::VisualizeTree("svg/cpu.transforming4.svg").run_on_model(nGraphFunc);
     }
 
     ngraph::pass::Manager fqDecompositionManager;
@@ -563,6 +581,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         });
     fqDecompositionManager.register_pass<ngraph::pass::ConstantFolding>();
     fqDecompositionManager.run_passes(nGraphFunc);
+
+    ngraph::pass::VisualizeTree("svg/scpu.transformed.svg").run_on_model(nGraphFunc);
 }
 
 static void Transformation(CNNNetwork& clonedNetwork, const bool _enableLPT, const bool _enableSnippets, const bool isLegacyApi) {
