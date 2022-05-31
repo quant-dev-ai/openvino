@@ -22,11 +22,10 @@ std::vector<std::shared_ptr<Node>> FunctionHelper::makePrerequisitesOriginal() {
 
     const auto maxPool = std::make_shared<ngraph::opset1::MaxPool>(
         parameter,
-        Strides{ 1, 1 },
-        Shape{ 1, 1 },
-        Shape{ 0, 0 },
-        Shape{ 1, 1 },
-        op::RoundingType::FLOOR);
+        Strides{ 1, 1 }, // strides
+        Shape{ 0, 0 },   // pads_begin
+        Shape{ 0, 0 },   // pads_end
+        Shape{ 1, 1 });  // kernel
     maxPool->set_friendly_name("maxPool");
     nodes.push_back(maxPool);
 
