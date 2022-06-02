@@ -3,6 +3,7 @@
 //
 
 #include "snippets/generator.hpp"
+#include <ngraph/pass/visualize_tree.hpp>
 #include "snippets/pass/assign_registers.hpp"
 #include "snippets/pass/vector_to_scalar.hpp"
 #include "snippets/pass/insert_load_store.hpp"
@@ -41,6 +42,9 @@ auto ngraph::snippets::getRegisters(std::shared_ptr<ngraph::Node>& n) -> ngraph:
 ngraph::snippets::code ngraph::snippets::Generator::generate(std::shared_ptr<ov::Model>& m,
                                                              const void* compile_params) const {
     OV_ITT_SCOPED_TASK(ngraph::pass::itt::domains::SnippetsTransform, "Snippets::Generator::generate")
+
+    ngraph::pass::VisualizeTree("svg/cpu.snippets.generator.svg").run_on_model(m);
+
     if (!target->is_supported())
         throw ngraph_error("unsupported architecture for code genration");
 

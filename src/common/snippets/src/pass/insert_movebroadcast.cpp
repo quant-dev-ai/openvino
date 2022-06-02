@@ -41,8 +41,9 @@ std::shared_ptr<ngraph::Node> numpy_broadcast_node(const ngraph::Output<ngraph::
         }
     }
 
+    // TODO: workaround: variadic split can be used
     remark(2) << "Insert explicit broadcast " << value.get_node()->get_type_name()
-    << " " << broadcasted_node->get_shape() << " -> " << output_shape << std::endl;
+    << " " << broadcasted_node->output(0).get_shape() << " -> " << output_shape << std::endl;
 
     // it shouldn't be a probrem for now since we don't consider StridedSlice and Broadcast here
     if (auto constant = ngraph::as_type_ptr<ngraph::opset1::Constant>(broadcasted_node)) {
@@ -155,7 +156,10 @@ ngraph::snippets::pass::InsertMoveBroadcast::InsertMoveBroadcast() {
 
         ngraph::OutputVector broadcasted_inputs;
         for (size_t i = 0; i < values.size(); ++i) {
-            auto node = numpy_broadcast_node(values[i], bcast_shapes.first, bcast_shapes.second[i]);
+            auto value = values[i];
+            auto output_shape = bcast_shapes.first;
+            auto source_shape = bcast_shapes.second[i];
+            auto node = numpy_broadcast_node(value, output_shape, source_shape);
             ngraph::copy_runtime_info(root, node);
             broadcasted_inputs.push_back(node);
         }

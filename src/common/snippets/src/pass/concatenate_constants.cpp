@@ -101,7 +101,7 @@ ConcatenateConstants::ConcatenateConstants() {
         }
 
         auto body = subgraph->get_body();
-        ngraph::pass::VisualizeTree("svg/cpu.transforming2.svg").run_on_model(body);
+        ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.1.svg").run_on_model(body);
 
         // TODO: first version limitation
         const size_t axis = 1;
@@ -116,7 +116,9 @@ ConcatenateConstants::ConcatenateConstants() {
         bool concatenatedConstantWasAdded = false;
         ngraph::element::Type inputPrecision;
 
-        for (auto i = 0;  i < subgraph->get_input_size(); ++i) {
+        // TODO: workaround
+        //for (auto i = 0;  i < subgraph->get_input_size(); ++i) {
+        for (int i = (subgraph->get_input_size() - 1);  i >= 0; --i) {
             auto target_input = subgraph->input(i);
             auto source_output = target_input.get_source_output();
             auto constant = as_type_ptr<opset1::Constant>(source_output.get_node()->shared_from_this());
@@ -177,7 +179,8 @@ ConcatenateConstants::ConcatenateConstants() {
                     std::make_shared<opset1::Constant>(element::i32, Shape{ 1ul }, std::vector<size_t>{axis}),
                     std::make_shared<opset1::Constant>(element::i32, Shape{ split_lengths.size() }, split_lengths));
 
-        ngraph::pass::VisualizeTree("svg/cpu.transforming3.svg").run_on_model(body);
+        ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.2.svg").run_on_model(body);
+
         body->validate_nodes_and_infer_types();
 
         auto parameters = body->get_parameters();
@@ -208,8 +211,6 @@ ConcatenateConstants::ConcatenateConstants() {
             //body->validate_nodes_and_infer_types();
         }
         body->add_parameters({ parameter });
-
-        ngraph::pass::VisualizeTree("svg/cpu.transforming3.svg").run_on_model(body);
         body->validate_nodes_and_infer_types();
 
         auto new_subgraph = std::make_shared<ngraph::snippets::op::Subgraph>(previousInputs, body);
@@ -217,7 +218,7 @@ ConcatenateConstants::ConcatenateConstants() {
         replace_node(subgraph, new_subgraph);
         copy_runtime_info(subgraph, new_subgraph);
 
-        ngraph::pass::VisualizeTree("svg/cpu.transforming3.svg").run_on_model(body);
+        ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.3.svg").run_on_model(body);
 
         return true;
     };

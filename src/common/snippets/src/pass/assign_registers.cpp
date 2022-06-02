@@ -176,7 +176,15 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
             auto allocated = physical_regs[output.get_tensor_ptr()];
             regs.push_back(allocated);
         }
-        rt["reginfo"] = regs;
+
+        // TODO: workaround: just to test
+        if (ov::is_type<opset1::Add>(n)) {
+            rt["reginfo"] = std::vector<size_t>{ 2ul };
+        } else {
+            rt["reginfo"] = regs;
+        }
+
+//        rt["reginfo"] = regs;
     }
 
     return false;
