@@ -346,7 +346,8 @@ private:
     void emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
         using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
                                     Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
-        Vmm vmm_src0 = Vmm(in[0]);
+        assert(in.size() > source_output_indexes[0]);
+        Vmm vmm_src0 = Vmm(in[source_output_indexes[0]]);
         Vmm vmm_dst  = Vmm(out[0]);
 
         if (use_broadcast) {
@@ -633,6 +634,82 @@ private:
 
 private:
     bool shouldPostIncrement;
+};
+
+class SplitLoadEmitter : public MemoryEmitter {
+public:
+    SplitLoadEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa, const std::shared_ptr<ov::Node>& n)
+    : MemoryEmitter(h, isa, n), shouldPostIncrement(*n->get_input_shape(0).rbegin() != 1), axis(-1) {
+        // TODO: just to debug
+        auto input_shape = n->get_input_shape(0);
+        if (shape_size(input_shape) == 0) {
+            return;
+        }
+
+        auto axis_constant = ov::as_type_ptr<ngraph::opset1::Constant>(n->get_input_node_shared_ptr(1));
+        if ((axis_constant == nullptr) || (shape_size(axis_constant->get_shape()) != 1ul)) {
+            return;
+        }
+        auto values = axis_constant->get_vector<size_t>();
+        if (values.size() != 1ul) {
+            return;
+        }
+        axis = values[0];
+    }
+
+    size_t get_inputs_num() const override {
+        return 2;
+    }
+
+private:
+    void emit_impl(const std::vector<size_t>& in,
+                   const std::vector<size_t>& out,
+                   const std::vector<size_t>& pool,
+                   const std::vector<size_t>& gpr,
+                   const ov::intel_cpu::emitter_context *emit_context) const override {
+        if (host_isa_ == dnnl::impl::cpu::x64::sse41) {
+            emit_isa<dnnl::impl::cpu::x64::sse41>(in, out);
+        } else if (host_isa_ == dnnl::impl::cpu::x64::avx2) {
+            emit_isa<dnnl::impl::cpu::x64::avx2>(in, out);
+        } else if (host_isa_ == dnnl::impl::cpu::x64::avx512_common) {
+            emit_isa<dnnl::impl::cpu::x64::avx512_common>(in, out);
+        } else {
+            IE_THROW() << host_isa_;
+            assert(!"unsupported isa");
+        }
+    }
+
+    template <dnnl::impl::cpu::x64::cpu_isa_t isa>
+    void emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+        // TODO: check axis here
+
+        using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
+        Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
+        Reg64 in_reg(ea);
+        auto increased = 0ul;
+        const auto out_size = out.size();
+
+        for (auto i = 0; i < out_size; ++i) {
+            Vmm vmm_out = Vmm(out[i]);
+
+            auto ptr = h->ptr[in_reg];
+            h->uni_vmovups(vmm_out, ptr);
+
+            if (shouldPostIncrement && (i < (out_size - 1))) {
+                // TODO: workaround
+                //auto size = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+                auto size = 3ul * 4ul;
+                increased += size;
+                h->add(in_reg, size);
+            }
+        }
+
+        h->sub(in_reg, increased);
+    }
+
+private:
+    bool shouldPostIncrement;
+    size_t axis;
 };
 
 }   // namespace intel_cpu

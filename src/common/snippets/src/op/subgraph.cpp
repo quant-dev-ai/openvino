@@ -12,6 +12,7 @@
 #include "snippets/pass/assign_registers.hpp"
 #include "snippets/pass/convert_constants.hpp"
 #include "snippets/pass/convert_power_to_powerstatic.hpp"
+#include "snippets/pass/replace_loads_with_split_loads.hpp"
 #include "snippets/pass/vector_to_scalar.hpp"
 
 #include "ngraph/pass/visualize_tree.hpp"
@@ -130,7 +131,7 @@ auto snippets::op::Subgraph::wrap_node_as_subgraph(const std::shared_ptr<ov::Nod
 Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShapes, const BlockedShapeVector& inputShapes) {
     INTERNAL_OP_SCOPE(Subgraph);
 
-    ngraph::pass::VisualizeTree("svg/cpu.transforming6.svg").run_on_model(m_body);
+    ngraph::pass::VisualizeTree("svg/snippets.canonicalize.1.svg").run_on_model(m_body);
 
     OV_ITT_SCOPED_TASK(ngraph::pass::itt::domains::SnippetsTransform, "Snippets::canonicalize")
     NODE_VALIDATION_CHECK(this, inputShapes.size() == m_body->get_parameters().size(),
@@ -177,24 +178,38 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
                                   "Snippets canonicalization got input shapes of equal ranks but different layouts, which is not supported");
         }
         ov::PartialShape tmpPShape(baseShape);
-        std::cout << "baseShape=" << baseShape << std::endl;
+//        std::cout << "baseShape=" << baseShape << std::endl;
 
-        const auto tmp_res = PartialShape::broadcast_merge_into(tmpPShape, inShape, ::ngraph::op::AutoBroadcastType::NUMPY);
-        std::cout << "tmp_res=" << tmp_res << std::endl;
-        std::cout << "dst=" << tmpPShape << std::endl;
-        std::cout << "src=" << inShape << std::endl << std::endl;
+//        const auto tmp_res = PartialShape::broadcast_merge_into(tmpPShape, inShape, ::ngraph::op::AutoBroadcastType::NUMPY);
+//        std::cout << "tmp_res=" << tmp_res << std::endl;
+//        std::cout << "dst=" << tmpPShape << std::endl;
+//        std::cout << "src=" << inShape << std::endl << std::endl;
 
-        NODE_VALIDATION_CHECK(this,
-                              PartialShape::broadcast_merge_into(tmpPShape, inShape, ::ngraph::op::AutoBroadcastType::NUMPY),
-                              "Failed to create broadcastable shapes in snippets canonicalization");
+//        NODE_VALIDATION_CHECK(this,
+//                              PartialShape::broadcast_merge_into(tmpPShape, inShape, ::ngraph::op::AutoBroadcastType::NUMPY),
+//                              "Failed to create broadcastable shapes in snippets canonicalization");
         const auto paramShape = m_body->get_parameters()[i]->get_shape();
         if (paramShape.size() != inShape.size() || !equal(paramShape.begin(), paramShape.end(), inShape.begin()))
                 m_body->replace_parameter(i, std::make_shared<opset1::Parameter>(inType, inShape));
+
+        // TODO: workaround
+        for (auto parameter : m_body->get_parameters()) {
+            if (parameter->output(0).get_shape() == ngraph::Shape{1, 1, 1, 2, 8}) {
+                auto split = parameter->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
+                auto new_split = split->clone_with_new_inputs({
+                    parameter,
+                    std::make_shared<opset1::Constant>(ov::element::i64, ngraph::Shape{}, std::vector<size_t>{ 3ul })
+                });
+                m_body->replace_node(split, new_split);
+            }
+        }
     }
+
+    ngraph::pass::VisualizeTree("svg/snippets.canonicalize.2.svg").run_on_model(m_body);
 
     m_body->validate_nodes_and_infer_types();
 
-    ngraph::pass::VisualizeTree("svg/cpu.transforming7.svg").run_on_model(m_body);
+    ngraph::pass::VisualizeTree("svg/snippets.canonicalize.3.svg").run_on_model(m_body);
 
     auto skipStartEndOnes = [](const Shape& shape) {
         auto begin = shape.begin();
@@ -229,6 +244,8 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
         NODE_VALIDATION_CHECK(this, compatibleWithOtherOutputs, "Snippets output shapes must be numpy broadcastable");
     }
     exec_domain = outPShape.get_shape();
+
+    ngraph::pass::VisualizeTree("svg/snippets.canonicalize.4.svg").run_on_model(m_body);
     return exec_domain;
 }
 
@@ -239,37 +256,55 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
         return n->get_input_shape(0).back() != 1;
     };
 
-    ngraph::pass::Manager manager;
-    manager.register_pass<snippets::pass::ConvertConstants>();
-    manager.register_pass<snippets::pass::ConvertPowerToPowerStatic>();
-    manager.register_pass<snippets::pass::InsertLoad>();
-    manager.register_pass<snippets::pass::InsertStore>();
-    manager.register_pass<snippets::pass::InsertMoveBroadcast>();
-    manager.register_pass<snippets::pass::LoadMoveBroadcastToBroadcastLoad>();
-    // Note that, BrodacastMove is typically inserted right after the Load. Such cases are typical for
-    // simple subgraphs where one of the ngraph::op's inputs is broadcasted to match the larger one. However, BroadcastMove
-    // could also be inserted after the ngraph::op, if the op input don't need broadcasting, but the the output does
-    // (for example, to match the larger output of a child node). In such cases, Loads (and Stores) should be replaced
-    // with ScalarLoads (ScalarStores) to avoid invalid read in vector Tile. Graph example:
-    // Parameter_0    Parameter_1        Parameter_2
-    // [1,2,5,16]      [1,2,5,1]          [1,2,5,1]
-    //   Load        BroadcastLoad         Load*       Scalar
-    //          Add                             Subtract
-    //            \___________     ___________BroadcastMove
-    //                        \   /
-    //                       Multiply
-    //                         Store
-    //                        Result
-    // Note: Load* should be replaced with ScalarLoad in this example to avoid invalid read in vector Tile.
-    if (!exec_domain.empty() && exec_domain.back() != 1) {
-        manager.register_pass<snippets::pass::ReplaceLoadsWithScalarLoads>();
-        manager.register_pass<snippets::pass::ReplaceStoresWithScalarStores>();
-        manager.get_pass_config()->
-        set_callback<ngraph::snippets::pass::ReplaceLoadsWithScalarLoads>(skip_matching_domain);
-        manager.get_pass_config()->
-        set_callback<ngraph::snippets::pass::ReplaceStoresWithScalarStores>(skip_matching_domain);
+    ngraph::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.1.svg").run_on_model(m_body);
+
+    {
+        ngraph::pass::Manager manager;
+        manager.set_per_pass_validation(false);
+        // manager.register_pass<snippets::pass::ConcatenateConstants>();
+        manager.register_pass<snippets::pass::ConvertConstants>();
+        manager.register_pass<snippets::pass::ConvertPowerToPowerStatic>();
+        manager.register_pass<snippets::pass::InsertLoad>();
+        manager.register_pass<snippets::pass::InsertStore>();
+        manager.register_pass<snippets::pass::InsertMoveBroadcast>();
+
+        // ReplaceLoadsWithSplitScalarLoads => ReplaceLoadsWithSplitLoads (Loads) : (InsertSplitLoads)
+        manager.register_pass<snippets::pass::ReplaceLoadsWithSplitLoads>();
+        manager.run_passes(m_body);
+        ngraph::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.2.svg").run_on_model(m_body);
     }
-    manager.run_passes(m_body);
+
+    {
+        ngraph::pass::Manager manager;
+        manager.set_per_pass_validation(false);
+        manager.register_pass<snippets::pass::LoadMoveBroadcastToBroadcastLoad>();
+        // Note that, BrodacastMove is typically inserted right after the Load. Such cases are typical for
+        // simple subgraphs where one of the ngraph::op's inputs is broadcasted to match the larger one. However, BroadcastMove
+        // could also be inserted after the ngraph::op, if the op input don't need broadcasting, but the the output does
+        // (for example, to match the larger output of a child node). In such cases, Loads (and Stores) should be replaced
+        // with ScalarLoads (ScalarStores) to avoid invalid read in vector Tile. Graph example:
+        // Parameter_0    Parameter_1        Parameter_2
+        // [1,2,5,16]      [1,2,5,1]          [1,2,5,1]
+        //   Load        BroadcastLoad         Load*       Scalar
+        //          Add                             Subtract
+        //            \___________     ___________BroadcastMove
+        //                        \   /
+        //                       Multiply
+        //                         Store
+        //                        Result
+        // Note: Load* should be replaced with ScalarLoad in this example to avoid invalid read in vector Tile.
+        if (!exec_domain.empty() && exec_domain.back() != 1) {
+            //manager.register_pass<snippets::pass::ReplaceLoadsWithSplitScalarLoads>();
+            manager.register_pass<snippets::pass::ReplaceLoadsWithScalarLoads>();
+            manager.register_pass<snippets::pass::ReplaceStoresWithScalarStores>();
+            manager.get_pass_config()->
+            set_callback<ngraph::snippets::pass::ReplaceLoadsWithScalarLoads>(skip_matching_domain);
+            manager.get_pass_config()->
+            set_callback<ngraph::snippets::pass::ReplaceStoresWithScalarStores>(skip_matching_domain);
+        }
+        manager.run_passes(m_body);
+        ngraph::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.3.svg").run_on_model(m_body);
+    }
 }
 
 snippets::Schedule snippets::op::Subgraph::generate(const BlockedShapeVector& output_shapes,
@@ -299,8 +334,11 @@ snippets::Schedule snippets::op::Subgraph::generate(ngraph::pass::Manager& opt, 
     convert_to_snippet_dialect();
     opt.run_passes(m_body);
 
+    ngraph::pass::VisualizeTree("svg/snippets.assign_registers.before.svg").run_on_model(m_body);
     // generation flow
     snippets::pass::AssignRegisters().run_on_model(m_body);
+
+    ngraph::pass::VisualizeTree("svg/snippets.assign_registers.after.svg").run_on_model(m_body);
 
     // schedule generation should go here and be target agnostic
 

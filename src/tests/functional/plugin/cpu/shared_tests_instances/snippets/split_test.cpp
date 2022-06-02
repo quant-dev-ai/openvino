@@ -39,7 +39,7 @@ const std::vector<TestValues> testValuesDecomposition = {
 
     {
         ov::element::f32,
-        ngraph::Shape{1, 3, 4, 4},
+        ngraph::Shape{1, 3, 16, 16},
         ov::element::f32,
         1.f,
         {{1, 3, 1, 1}, {1, 3, 1, 1}, {1, 3, 1, 1}, {1, 3, 1, 1}}

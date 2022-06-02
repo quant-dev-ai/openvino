@@ -113,7 +113,13 @@ auto is_layout_oblivious(const std::shared_ptr<const Node> &n) -> bool {
             || ov::is_type<ngraph::op::v7::Gelu>(n)
             || ov::is_type<ngraph::op::v4::HSwish>(n);
     };
-    return is_layout_supported(n) || is_layout_oblivious_unary(n) || is_layout_oblivious_binary(n);
+
+    auto is_layout_oblivious_movement = [](const std::shared_ptr<const Node> &n) -> bool {
+        // TODO: check axis
+        return ov::is_type<opset1::Split>(n);
+    };
+
+    return is_layout_supported(n) || is_layout_oblivious_unary(n) || is_layout_oblivious_binary(n) || is_layout_oblivious_movement(n);
 }
 
 auto has_supported_in_out(const std::shared_ptr<const Node> &n) -> bool {

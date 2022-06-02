@@ -561,16 +561,14 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         tokenization_manager.register_pass<ngraph::snippets::pass::ConstantFolding>();
         tokenization_manager.run_passes(nGraphFunc);
 
-        ngraph::pass::VisualizeTree("svg/cpu.snippets.transformed.svg").run_on_model(nGraphFunc);
-
-        ngraph::pass::VisualizeTree("svg/cpu.transforming1.svg").run_on_model(nGraphFunc);
+        ngraph::pass::VisualizeTree("svg/cpu.snippets.transformed_before_concatenate.svg").run_on_model(nGraphFunc);
         {
             ngraph::pass::Manager tokenization_manager;
             tokenization_manager.set_per_pass_validation(false);
             tokenization_manager.register_pass<ngraph::snippets::pass::ConcatenateConstants>();
             tokenization_manager.run_passes(nGraphFunc);
         }
-        ngraph::pass::VisualizeTree("svg/cpu.transforming4.svg").run_on_model(nGraphFunc);
+        ngraph::pass::VisualizeTree("svg/cpu.snippets.transformed_after_concatenate.svg").run_on_model(nGraphFunc);
     }
 
     ngraph::pass::Manager fqDecompositionManager;
@@ -582,7 +580,7 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
     fqDecompositionManager.register_pass<ngraph::pass::ConstantFolding>();
     fqDecompositionManager.run_passes(nGraphFunc);
 
-    ngraph::pass::VisualizeTree("svg/scpu.transformed.svg").run_on_model(nGraphFunc);
+    ngraph::pass::VisualizeTree("svg/cpu.transformed.svg").run_on_model(nGraphFunc);
 }
 
 static void Transformation(CNNNetwork& clonedNetwork, const bool _enableLPT, const bool _enableSnippets, const bool isLegacyApi) {

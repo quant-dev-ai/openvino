@@ -253,6 +253,10 @@ void Snippet::define_schedule() {
     auto edgeToBlockedShape = [](const EdgePtr& edge) {
         const auto blockedDesc = edge->getMemory().GetDescWithType<BlockedMemoryDesc>();
         ngraph::Shape shape(blockedDesc->getBlockDims());
+        // TODO: workaround: just to test
+        if (shape == ngraph::Shape{1, 1, 1, 1, 8}) {
+            shape = ngraph::Shape{1, 1, 1, 2, 8};
+        }
         ngraph::AxisVector blocking(blockedDesc->getOrder());
         ngraph::element::Type precision = InferenceEngine::details::convertPrecision(blockedDesc->getPrecision());
         return ngraph::snippets::op::Subgraph::BlockedShape{shape, blocking, precision};
@@ -265,8 +269,19 @@ void Snippet::define_schedule() {
         return result;
     };
     ngraph::snippets::op::Subgraph::BlockedShapeVector input_blocked_shapes;
-    for (size_t i = 0; i < inputShapes.size(); i++)
-        input_blocked_shapes.push_back(edgeToBlockedShape(getParentEdgesAtPort(i)[0]));
+    for (size_t i = 0; i < inputShapes.size(); i++) {
+        auto parent_edges = getParentEdgesAtPort(i);
+        auto parent_edge = parent_edges[0];
+        // TODO: here
+        auto blocked_shape = edgeToBlockedShape(parent_edge);
+        // TODO: workaround: just to test
+//        if (i == 1) {
+//            auto output_shape = std::get<0>(blocked_shape)[0];
+//            auto& shape = getOutputShapeAtPort(output_shape);
+//            shape[4] = 16;
+//        }
+        input_blocked_shapes.push_back(blocked_shape);
+    }
 
     ngraph::snippets::op::Subgraph::BlockedShapeVector output_blocked_shapes;
     for (size_t i = 0; i < outputShapes.size(); i++)
