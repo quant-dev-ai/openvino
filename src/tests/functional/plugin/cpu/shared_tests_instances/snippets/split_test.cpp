@@ -14,36 +14,20 @@ namespace {
 
 namespace decompositionIgnore {
 const std::vector<TestValues> testValuesDecomposition = {
-    //{
-    //    ov::element::f32,
-    //    ngraph::Shape{1, 3, 16, 16},
-    //    ov::element::f32,
-    //    1.f,
-    //    {{1, 3, 1, 1}, {1, 3, 1, 1}, {}, {}}
-    //},
-    //{
-    //    ov::element::f32,
-    //    ngraph::Shape{1, 3, 16, 16},
-    //    ov::element::f32,
-    //    1.f,
-    //    {{}, {}, {1, 3, 1, 1}, {1, 3, 1, 1}}
-    //},
-
-//    {
-//        ov::element::f32,
-//        ngraph::Shape{1, 3, 16, 16},
-//        ov::element::f32,
-//        1.f,
-//        {{}, {}, {}, {}}
-//    },
-
     {
         ov::element::f32,
         ngraph::Shape{1, 3, 16, 16},
         ov::element::f32,
         1.f,
-        {{1, 3, 1, 1}, {1, 3, 1, 1}, {1, 3, 1, 1}, {1, 3, 1, 1}}
+        {{1, 3, 1, 1}, {1, 3, 1, 1}}
     },
+//    {
+//        ov::element::f32,
+//        ngraph::Shape{1, 16, 16, 16},
+//        ov::element::f32,
+//        1.f,
+//        {{1, 16, 1, 1}, {1, 16, 1, 1}}
+//    },
 };
 
 std::vector<std::pair<std::shared_ptr<Node>, std::pair<std::string, std::string>>> operations = {

@@ -37,8 +37,9 @@ std::string SplitTest::getTestCaseName(testing::TestParamInfo<testsParams> obj) 
     result << "ON1=" << std::string(operation.second.first) << "_";
     result << "ON1=" << std::string(operation.second.second) << "_";
     result << "LP=" << values.zeroPoint;
-    result << "SH1=" << values.fakeQuantizeShapes[0] << "SH2=" << values.fakeQuantizeShapes[1]
-           << "SH3=" << values.fakeQuantizeShapes[2] << "SH4=" << values.fakeQuantizeShapes[3];
+    for (auto i = 0; i < values.constantShapes.size(); ++i) {
+        result << "_SH" << i << "=" << values.constantShapes[i];
+    }
     return result.str();
 }
 
@@ -59,7 +60,7 @@ void SplitTest::SetUp() {
     function = ov::test::snippets::SplitFunction::get(
         {values.inputShape},
         values.inputType,
-        values.fakeQuantizeShapes,
+        values.constantShapes,
         values.zeroPoint,
         ov::test::snippets::FunctionHelper::makePrerequisitesOriginal(),
         op);

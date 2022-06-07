@@ -14,11 +14,11 @@ namespace snippets {
 std::shared_ptr<ov::Model> SplitFunction::get(
     const ngraph::Shape& inputShape,
     const element::Type inputType,
-    const std::vector<ngraph::Shape>& fakeQuantizeShapes,
+    const std::vector<ngraph::Shape>& constantShapes,
     const float zeroPoint,
     const std::vector<std::shared_ptr<ngraph::Node>>& prerequisites,
     std::shared_ptr<ngraph::Node> operation) {
-    assert(fakeQuantizeShapes.size() == 4ul);
+    assert(constantShapes.size() == 2ul);
 
     const auto parameter = std::make_shared<ngraph::opset1::Parameter>(inputType, inputShape);
     parameter->set_friendly_name("parameter");
@@ -32,9 +32,9 @@ std::shared_ptr<ov::Model> SplitFunction::get(
 //    parent = std::make_shared<ngraph::opset1::Multiply>(parent, split->outputs()[0]);
 //    parent = std::make_shared<ngraph::opset1::Add>(parent, split->outputs()[1]);
 
-    const auto multiply_value = ngraph::opset1::Constant::create(element::f32, Shape{1, 3, 1, 1}, {1.f, 2.f, 3.f});
+    const auto multiply_value = ngraph::opset1::Constant::create(element::f32, constantShapes[0], {1.f, 2.f, 3.f});
     parent = std::make_shared<ngraph::opset1::Multiply>(parent, multiply_value);
-    const auto add_value = ngraph::opset1::Constant::create(element::f32, Shape{1, 3, 1, 1}, {4.f, 5.f, 6.f});
+    const auto add_value = ngraph::opset1::Constant::create(element::f32, constantShapes[1], {4.f, 5.f, 6.f});
     parent = std::make_shared<ngraph::opset1::Add>(parent, add_value);
 
     const auto result = std::make_shared<ngraph::opset1::Result>(parent);

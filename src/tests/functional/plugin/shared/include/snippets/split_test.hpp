@@ -29,7 +29,7 @@ public:
     ngraph::Shape inputShape;
     ov::element::Type inputType;
     float zeroPoint;
-    std::vector<ngraph::Shape> fakeQuantizeShapes;
+    std::vector<ngraph::Shape> constantShapes;
 };
 
 typedef std::tuple<
