@@ -32,9 +32,24 @@ std::shared_ptr<ov::Model> SplitFunction::get(
 //    parent = std::make_shared<ngraph::opset1::Multiply>(parent, split->outputs()[0]);
 //    parent = std::make_shared<ngraph::opset1::Add>(parent, split->outputs()[1]);
 
-    const auto multiply_value = ngraph::opset1::Constant::create(element::f32, constantShapes[0], {1.f, 2.f, 3.f});
+    auto generate_values = [](const ngraph::Shape& shape, const float initial_value = 0.f) {
+        std::vector<float> multiply_values(shape_size(shape));
+        for (auto i = 0; i < multiply_values.size(); ++i) {
+            multiply_values[i] = static_cast<float>(initial_value + i);
+        }
+        return multiply_values;
+    };
+
+    const auto multiply_value = ngraph::opset1::Constant::create(
+            element::f32,
+            constantShapes[0],
+            generate_values(constantShapes[0], 1.f));
     parent = std::make_shared<ngraph::opset1::Multiply>(parent, multiply_value);
-    const auto add_value = ngraph::opset1::Constant::create(element::f32, constantShapes[1], {4.f, 5.f, 6.f});
+
+    const auto add_value = ngraph::opset1::Constant::create(
+            element::f32,
+            constantShapes[1],
+            generate_values(constantShapes[1], shape_size(constantShapes[0]) + 1.f));
     parent = std::make_shared<ngraph::opset1::Add>(parent, add_value);
 
     const auto result = std::make_shared<ngraph::opset1::Result>(parent);

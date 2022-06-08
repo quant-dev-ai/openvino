@@ -193,16 +193,16 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
                 m_body->replace_parameter(i, std::make_shared<opset1::Parameter>(inType, inShape));
 
         // TODO: workaround
-        for (auto parameter : m_body->get_parameters()) {
-            if (parameter->output(0).get_shape() == ngraph::Shape{1, 1, 1, 2, 8}) {
-                auto split = parameter->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
-                auto new_split = split->clone_with_new_inputs({
-                    parameter,
-                    std::make_shared<opset1::Constant>(ov::element::i64, ngraph::Shape{}, std::vector<size_t>{ 3ul })
-                });
-                m_body->replace_node(split, new_split);
-            }
-        }
+//        for (auto parameter : m_body->get_parameters()) {
+//            if (parameter->output(0).get_shape() == ngraph::Shape{1, 1, 1, 2, 8}) {
+//                auto split = parameter->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
+//                auto new_split = split->clone_with_new_inputs({
+//                    parameter,
+//                    std::make_shared<opset1::Constant>(ov::element::i64, ngraph::Shape{}, std::vector<size_t>{ 3ul })
+//                });
+//                m_body->replace_node(split, new_split);
+//            }
+//        }
     }
 
     ngraph::pass::VisualizeTree("svg/snippets.canonicalize.2.svg").run_on_model(m_body);

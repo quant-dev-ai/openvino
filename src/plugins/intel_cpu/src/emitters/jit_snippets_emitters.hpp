@@ -650,11 +650,21 @@ public:
         if ((axis_constant == nullptr) || (shape_size(axis_constant->get_shape()) != 1ul)) {
             return;
         }
-        auto values = axis_constant->get_vector<size_t>();
-        if (values.size() != 1ul) {
+
+        auto values = axis_constant->get_vector<int>();
+        if (axis_constant->get_vector<int>().size() != 1ul) {
             return;
         }
         axis = values[0];
+
+        offsets.resize(n->get_output_size() - 1ul);
+        for (auto i = 0; i < (n->get_output_size() - 1); ++i) {
+            auto shape = n->output(0).get_partial_shape();
+            if (shape.is_dynamic()) {
+                return;
+            }
+            offsets[i] = shape_size(shape.get_shape());
+        }
     }
 
     size_t get_inputs_num() const override {
@@ -681,6 +691,10 @@ private:
 
     template <dnnl::impl::cpu::x64::cpu_isa_t isa>
     void emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+        if (offsets.empty()) {
+            IE_THROW() << "offsets are not set";
+        }
+
         // TODO: check axis here
 
         using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
@@ -695,13 +709,15 @@ private:
             auto ptr = h->ptr[in_reg];
             h->uni_vmovups(vmm_out, ptr);
 
-            if (shouldPostIncrement && (i < (out_size - 1))) {
-                // TODO: workaround
-                //auto size = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
-                auto size = 3ul * 4ul;
-                increased += size;
-                h->add(in_reg, size);
+            if (i < (out_size - 1)) {
+                increased += offsets[i];
+                h->add(in_reg, offsets[i]);
             }
+        }
+
+        if (shouldPostIncrement) {
+            auto size = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+            increased -= size;
         }
 
         h->sub(in_reg, increased);
@@ -710,6 +726,7 @@ private:
 private:
     bool shouldPostIncrement;
     size_t axis;
+    std::vector<size_t> offsets;
 };
 
 }   // namespace intel_cpu

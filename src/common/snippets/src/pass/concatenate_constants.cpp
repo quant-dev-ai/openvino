@@ -104,7 +104,7 @@ ConcatenateConstants::ConcatenateConstants() {
         ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.1.svg").run_on_model(body);
 
         // TODO: first version limitation
-        const size_t axis = 1;
+        const size_t axis = 0;
         std::vector<size_t> split_lengths;
 
         std::unordered_map<std::string, std::shared_ptr<opset1::Constant>> constant_input_ids;
