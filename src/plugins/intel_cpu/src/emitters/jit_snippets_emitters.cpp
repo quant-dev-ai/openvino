@@ -390,7 +390,9 @@ void FakeBroadcastEmitter::emit_isa(const std::vector<size_t> &in, const std::ve
     if (use_broadcast) {
         h->uni_vbroadcastss(vmm_dst, Xmm(in[0]));
     } else {
-        h->uni_vmovups(vmm_dst, vmm_src0);
+        if (vmm_dst != vmm_src0) {
+            h->uni_vmovups(vmm_dst, vmm_src0);
+        }
     }
 }
 
