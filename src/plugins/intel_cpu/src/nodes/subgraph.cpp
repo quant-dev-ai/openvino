@@ -185,9 +185,24 @@ void Snippet::execute(dnnl::stream strm) {
     if (schedule.ptr == nullptr || !canUseOptimizedImpl) {
         IE_THROW() << "Snippet can't use Optimized implementation and can't fallback to reference";
     }
+
+    auto display = [](const std::vector<ov::intel_cpu::MemoryPtr>& memPtrs, const std::vector<ptrdiff_t>& start_offset) {
+        for (size_t i = 0; i < memPtrs.size(); i++) {
+            float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
+            auto shape = memPtrs[i]->GetShape().getDims();
+            std::cout << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
+            for (auto j = 0; j < shape_size(shape); j++) {
+                std::cout << j << " = " << value[j] << std::endl;
+            }
+        }
+    };
+
     jit_snippets_call_args call_args;
     for (size_t i = 0; i < srcMemPtrs.size(); i++)
         call_args.src_ptrs[i] = reinterpret_cast<const uint8_t*>(srcMemPtrs[i]->GetData()) + start_offset_in[i];
+
+    std::cout << "srcMemPtrs.size() = " << srcMemPtrs.size() << std::endl;
+    display(srcMemPtrs, start_offset_in);
 
     for (size_t i = 0; i < dstMemPtrs.size(); i++)
         call_args.dst_ptrs[i] = reinterpret_cast<uint8_t*>(dstMemPtrs[i]->GetData()) + start_offset_out[i];
@@ -197,6 +212,9 @@ void Snippet::execute(dnnl::stream strm) {
     } else {
         schedule_nt(call_args);
     }
+
+    std::cout << "dstMemPtrs.size() = " << dstMemPtrs.size() << std::endl;
+    display(dstMemPtrs, start_offset_out);
 }
 
 bool Snippet::created() const {
@@ -228,6 +246,7 @@ bool Snippet::canBeInPlace() const {
 static void offset_calculation(std::vector<size_t>& offset, const std::vector<size_t>& dims_in, const std::vector<size_t>& dims_out) {
     size_t k = 1;
     for (int i = offset.size() - 1; i >= 0; i--) {
+        // <<= why??? dims: {1,1,1,1,1,8} (out: {1,1,16,16,8}) => offsets: {32,32,32,0,0,4}
         offset[i] = (dims_in[i] == dims_out[i]) ? k : 0;
         k *= dims_in[i];
     }
@@ -279,7 +298,9 @@ void Snippet::define_schedule() {
     exec_domain = prependWithOnes(exec_domain);
     const auto &body = snippet->get_body();
     for (const auto& p : body->get_parameters()) {
-        dims_in.emplace_back(prependWithOnes(p->get_shape()));
+        auto shape = p->get_shape();
+        auto prepand_shape = prependWithOnes(shape);
+        dims_in.emplace_back(prepand_shape);
     }
 
     for (size_t i = 0; i < body->get_output_size(); i++) {
@@ -289,14 +310,30 @@ void Snippet::define_schedule() {
     const auto config = getSelectedPrimitiveDescriptor()->getConfig();
     const auto dataSize = config.inConfs[0].getMemDesc()->getPrecision().size();
     auto initOffsets = [this, config, dataSize]() {
+        // TODO: just to test
+        std::cout << "initOffsets: " << std::endl;
+
         // find max rank input among all outputs
         const size_t inputNum = getParentEdges().size();
         offsets_in.resize(inputNum);
         for (size_t i = 0; i < inputNum; i++) {
             offsets_in[i].resize(tensorRank, 1);
             offset_calculation(offsets_in[i], dims_in[i], exec_domain);
+
+            // TODO: just to test
+            std::cout << "initOffsets: offset_calculation: " << std::endl;
+            for (size_t j = 0; j < tensorRank; j++) {
+                std::cout << "offsets_in[" << i << "][" << j << "] = " << offsets_in[i][j] << std::endl;
+            }
+
             for (size_t j = 0; j < tensorRank; j++) {
                 offsets_in[i][j] *= dataSize;
+            }
+
+            // TODO: just to test
+            std::cout << "initOffsets: result: " << std::endl;
+            for (size_t j = 0; j < tensorRank; j++) {
+                std::cout << "offsets_in[" << i << "][" << j << "] = " << offsets_in[i][j] << std::endl;
             }
         }
 
@@ -306,6 +343,8 @@ void Snippet::define_schedule() {
             const auto memPtr = getParentEdgeAt(i)->getMemoryPtr();
             srcMemPtrs[i] = memPtr;
             start_offset_in[i] =  memPtr->GetDescWithType<BlockedMemoryDesc>()->getOffsetPadding() * dataSize;
+            // TODO: just to test
+            std::cout << "start_offset_in[" << i << "] = " << start_offset_in[i] << std::endl;
         }
 
         const size_t outputNum = config.outConfs.size();
@@ -315,6 +354,8 @@ void Snippet::define_schedule() {
             offset_calculation(offsets_out[i], dims_out[i], exec_domain);
             for (size_t j = 0; j < tensorRank; j++) {
                 offsets_out[i][j] *= dataSize;
+                // TODO: just to test
+                std::cout << "offsets_out[" << i << "][" << j << "] = " << offsets_out[i][j] << std::endl;
             }
         }
 
@@ -324,6 +365,8 @@ void Snippet::define_schedule() {
             const auto memPtr = getChildEdgeAt(i)->getMemoryPtr();
             dstMemPtrs[i] = memPtr;
             start_offset_out[i] = memPtr->GetDescWithType<BlockedMemoryDesc>()->getOffsetPadding() * dataSize;
+            // TODO: just to test
+            std::cout << "start_offset_out[" << i << "] = " << start_offset_out[i] << std::endl;
         }
     };
 
@@ -338,8 +381,10 @@ void Snippet::define_schedule() {
 
             bool canCollapse = true;
             for (size_t i = 0; i < dims_in.size(); i++) {
-                if ((dims_in[i][dims_in[i].size() - 2] != 1 && dims_in[i][dims_in[i].size() - 1] == 1) ||
-                    (dims_in[i][dims_in[i].size() - 2] == 1 && dims_in[i][dims_in[i].size() - 1] != 1)) {
+                auto d4 = dims_in[i][dims_in[i].size() - 2];
+                auto d5 = dims_in[i][dims_in[i].size() - 1];
+                if ((d4 != 1 && d5 == 1) ||
+                    (d4 == 1 && d5 != 1)) {
                     canCollapse = false;
                     break;
                 }
@@ -426,9 +471,26 @@ void Snippet::generate() {
         canUseOptimizedImpl = false;
         harness_num_dims = SNIPPETS_MAX_HARNESS_DIMS;
     }
+
+    // TODO: debug only
+    auto display = [&]() {
+        std::cout << "jcp.data_offsets: " << std::endl;
+        for (auto i = 0; i < SNIPPETS_MAX_SNIPPETS_DIMS * SNIPPETS_MAX_HARNESS_DIMS; ++i) {
+            std::cout << "i: " << i << ": " << jcp.data_offsets[i] << std::endl;
+        }
+    };
+
     for (size_t i = 0; i < inputShapes.size(); i++) {
         auto b = offsets_in[i].begin();
+
+        // TODO: debug only
+        auto value_b = *b;
+        std::cout << "DEBUG: begin: " << value_b << ", end: " << value_b + harness_num_dims << std::endl;
+
         std::copy(b, b + harness_num_dims, &jcp.data_offsets[i * harness_num_dims]);
+
+        // TODO: debug only
+        display();
     }
     for (size_t i = 0; i < outputShapes.size(); i++) {
         auto b = offsets_out[i].begin();
@@ -443,7 +505,12 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
     parallel_for5d(dom[0], dom[1], dom[2], dom[3], dom[4],
         [&](int64_t d0, int64_t d1, int64_t d2, int64_t d3, int64_t d4) {
             int64_t indexes[] = {d0, d1, d2, d3, d4};
-            schedule.get_callable<kernel>()(indexes, &call_args);
+            std::cout << "d0=" << d0 << ", d1=" << d1 << ", d2=" << d2 << ", d3=" << d3 << ", d4=" << d4 << std::endl;
+            if ((d0 == 0) && (d1 == 1) && (d2 == 0) && (d3 == 0) && (d4 == 0)) {
+                std::cout << "DEBUG" << std::endl;
+            }
+            auto callable = schedule.get_callable<kernel>();
+            callable(indexes, &call_args);
         });
 }
 

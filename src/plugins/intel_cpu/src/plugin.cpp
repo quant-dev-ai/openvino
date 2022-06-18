@@ -179,6 +179,8 @@ Engine::~Engine() {
 
 static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function> nGraphFunc, const bool _enableLPT,
                                                const bool _enableSnippets, const bool isLegacyApi) {
+    ngraph::pass::VisualizeTree("svg/cpu.original.svg").run_on_model(nGraphFunc);
+
     ngraph::pass::Manager manager;
     manager.set_per_pass_validation(false);
     manager.register_pass<ngraph::pass::InitNodeInfo>();
@@ -439,6 +441,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
 
     manager.run_passes(nGraphFunc);
 
+    ngraph::pass::VisualizeTree("svg/cpu.common.svg").run_on_model(nGraphFunc);
+
     using namespace ngraph::pass::low_precision;
     if (useLpt) {
         CPU_LPT_SCOPE(LowPrecisionTransformations_Part4);
@@ -554,6 +558,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
                 });
         tokenization_manager.run_passes(nGraphFunc);
     }
+
+    ngraph::pass::VisualizeTree("svg/cpu.transformed.svg").run_on_model(nGraphFunc);
 }
 
 static void Transformation(CNNNetwork& clonedNetwork, const bool _enableLPT, const bool _enableSnippets, const bool isLegacyApi) {
