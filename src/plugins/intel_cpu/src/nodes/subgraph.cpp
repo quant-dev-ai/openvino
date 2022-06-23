@@ -269,6 +269,24 @@ static auto collapseLastDims(std::vector<size_t>& dims, size_t dimsToCollapse) -
     }
 }
 
+namespace {
+bool is_concatenated_constant(const std::shared_ptr<Node>& parent) {
+    const auto parent_type = parent->getType();
+    if (parent_type == Type::Reorder) {
+        auto parent_edges2 = parent->getParentEdgesAtPort(0);
+        auto parent2 = parent_edges2[0]->getParent();
+        return is_concatenated_constant(parent2);
+    }
+
+    if (parent->isConstant() && parent->concatenated) {
+        std::cout << "DEBUG" << std::endl;
+        return true;
+    }
+
+    return false;
+}
+} // namespace
+
 void Snippet::define_schedule() {
     auto edgeToBlockedShape = [](const EdgePtr& edge) {
         const auto blockedDesc = edge->getMemory().GetDescWithType<BlockedMemoryDesc>();
@@ -318,10 +336,18 @@ void Snippet::define_schedule() {
         const size_t inputNum = getParentEdges().size();
         offsets_in.resize(inputNum);
         for (size_t i = 0; i < inputNum; i++) {
+            auto parent_edges = this->getParentEdgesAtPort(i);
+            bool concatenated = is_concatenated_constant(parent_edges[0]->getParent());
+
             offsets_in[i].resize(tensorRank, 1);
             offset_calculation(offsets_in[i], dims_in[i], exec_domain);
+            // TODO: just to test
+            std::cout << "initOffsets: " << std::endl;
             for (size_t j = 0; j < tensorRank; j++) {
-                offsets_in[i][j] *= dataSize;
+                // TODO: not clear - why not offsets_in[i][0]
+                offsets_in[i][j] *= (concatenated && (j == 1ul)) ? 0ul : dataSize;
+                // TODO: just to test
+                std::cout << "offsets_in[" << i << "][" << j << "] = " << offsets_in[i][j] << std::endl;
             }
         }
 
@@ -452,27 +478,27 @@ void Snippet::generate() {
         harness_num_dims = SNIPPETS_MAX_HARNESS_DIMS;
     }
 
-//    // TODO: debug only
-//    auto display = [&]() {
-//        std::cout << "jcp.data_offsets: " << std::endl;
-//        for (auto i = 0; i < SNIPPETS_MAX_SNIPPETS_DIMS * SNIPPETS_MAX_HARNESS_DIMS; ++i) {
-//            std::cout << "i: " << i << ": " << jcp.data_offsets[i] << std::endl;
-//        }
-//    };
+    // TODO: debug only
+    auto display = [&]() {
+        std::cout << "jcp.data_offsets: " << std::endl;
+        for (auto i = 0; i < SNIPPETS_MAX_SNIPPETS_DIMS * SNIPPETS_MAX_HARNESS_DIMS; ++i) {
+            std::cout << "i: " << i << ": " << jcp.data_offsets[i] << std::endl;
+        }
+    };
 
     for (size_t i = 0; i < inputShapes.size(); i++) {
     //for (size_t i = 0; i < (inputShapes.size() - 1); i++) {
         auto b = offsets_in[i].begin();
 
         // TODO: debug only
-//        auto value_b = *b;
-//        std::cout << "DEBUG: begin: " << value_b << ", end: " << value_b + harness_num_dims << std::endl;
+        auto value_b = *b;
+        std::cout << "DEBUG: begin: " << value_b << ", end: " << value_b + harness_num_dims << std::endl;
 
         // jcp.data_offsets[for constant] = 0
         std::copy(b, b + harness_num_dims, &jcp.data_offsets[i * harness_num_dims]);
 
         // TODO: debug only
-        //display();
+        display();
     }
 
     for (size_t i = 0; i < outputShapes.size(); i++) {

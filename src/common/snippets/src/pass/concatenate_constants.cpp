@@ -162,10 +162,11 @@ ConcatenateConstants::ConcatenateConstants() {
             throw ngraph_error("constants were not concatenated");
         }
 
+        auto& rt_info = result->get_rt_info();
+        rt_info.insert({"concatenated", true});
+
         result->set_friendly_name(concatenatedConstantFriendlyName);
         previousInputs.push_back(result);
-
-
 
         auto parameter = std::make_shared<opset1::Parameter>(inputPrecision, result->output(0).get_partial_shape());
         parameter->set_friendly_name(concatenatedConstantFriendlyName);

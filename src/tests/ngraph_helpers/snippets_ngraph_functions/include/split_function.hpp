@@ -16,8 +16,7 @@ public:
         const ngraph::Shape& inputShape,
         const element::Type inputType,
         const std::vector<ngraph::Shape>& fakeQuantizeShapes,
-        const std::vector<std::shared_ptr<ngraph::Node>>& prerequisites,
-        std::shared_ptr<ngraph::Node> operation = nullptr);
+        const std::vector<std::shared_ptr<ngraph::Node>>& prerequisites);
 };
 
 }  // namespace snippets

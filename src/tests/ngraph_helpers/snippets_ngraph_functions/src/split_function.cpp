@@ -15,8 +15,7 @@ std::shared_ptr<ov::Model> SplitFunction::get(
     const ngraph::Shape& inputShape,
     const element::Type inputType,
     const std::vector<ngraph::Shape>& constantShapes,
-    const std::vector<std::shared_ptr<ngraph::Node>>& prerequisites,
-    std::shared_ptr<ngraph::Node> operation) {
+    const std::vector<std::shared_ptr<ngraph::Node>>& prerequisites) {
     assert(constantShapes.size() == 2ul);
 
     const auto parameter = std::make_shared<ngraph::opset1::Parameter>(inputType, inputShape);

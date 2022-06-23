@@ -16,17 +16,16 @@ namespace LayerTestsDefinitions {
 
 class SplitTestValues {
 public:
-    ov::element::Type modelType;
     ngraph::Shape inputShape;
-    ov::element::Type inputType;
     std::vector<ngraph::Shape> constantShapes;
     int num_nodes;
     int num_subgraphs;
 };
 
 typedef std::tuple<
-    SplitTestValues,                 // test values
-    std::pair<std::shared_ptr<ngraph::Node>, std::pair<std::string, std::string>>,   // operation
+    SplitTestValues,            // test values
+    size_t,                     // branches
+    ov::element::Type,          // input_type,
     std::pair<size_t, size_t>,  // number of nodes
     std::string                 // target device
 > testsParams;

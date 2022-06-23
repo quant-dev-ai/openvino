@@ -19,23 +19,17 @@ namespace LayerTestsDefinitions {
 
 std::string SplitTest::getTestCaseName(testing::TestParamInfo<testsParams> obj) {
     std::ostringstream result;
-    const auto values = std::get<0>(obj.param);
-    const auto operation = std::get<1>(obj.param);
-    const auto operations_number = std::get<2>(obj.param);
-    const auto targetDevice = std::get<3>(obj.param);
-
-    const auto type_info = operation.first->get_type_info();
-    const auto operationString = ngraph::is_type<ngraph::opset1::Parameter>(operation.first) ?
-        "nullptr" :
-        (std::string(type_info.name) + "_" + std::string(type_info.version_id));
+    auto values = std::get<0>(obj.param);
+    const size_t input_branch = std::get<1>(obj.param);
+    values.inputShape[0] = input_branch;
+    const auto input_type = std::get<2>(obj.param);
+    const auto operations_number = std::get<3>(obj.param);
+    const auto targetDevice = std::get<4>(obj.param);
 
     result << "IS=" << CommonTestUtils::vec2str(values.inputShape) << "_";
-    result << "netPRC=" << values.modelType << "_";
+    result << "netPRC=" << input_type << "_";
     result << "D=" << targetDevice << "_";
-    result << "IN=" << values.inputType << "_";
-    result << "OP=" << operationString << "_";
-    result << "ON1=" << std::string(operation.second.first) << "_";
-    result << "ON1=" << std::string(operation.second.second) << "_";
+    result << "IN=" << input_type << "_";
     result << "NN=" << values.num_nodes;
     for (auto i = 0; i < values.constantShapes.size(); ++i) {
         result << "_SH" << i << "=" << values.constantShapes[i];
@@ -51,23 +45,25 @@ void SplitTest::SetUp() {
 
     auto& testsParams = this->GetParam();
 
-    const auto values = std::get<0>(testsParams);
-    const auto operation = std::get<1>(testsParams);
-    const auto operations_number = std::get<2>(testsParams);
-    targetDevice = std::get<3>(testsParams);
+    auto values = std::get<0>(testsParams);
+
+    auto input_batch = std::get<1>(testsParams);
+    values.inputShape[0] = input_batch;
+
+    const auto input_type = std::get<2>(testsParams);
+    const auto operations_number = std::get<3>(testsParams);
+    targetDevice = std::get<4>(testsParams);
 
     ref_num_nodes = operations_number.first;
     ref_num_subgraphs = operations_number.second;
 
     init_input_shapes({{values.inputShape, {values.inputShape}}});
 
-    std::shared_ptr<ngraph::Node> op = ngraph::is_type<ngraph::opset1::Parameter>(operation.first) ? nullptr : operation.first;
     function = ov::test::snippets::SplitFunction::get(
         {values.inputShape},
-        values.inputType,
+        input_type,
         values.constantShapes,
-        ov::test::snippets::FunctionHelper::makePrerequisitesOriginal(),
-        op);
+        ov::test::snippets::FunctionHelper::makePrerequisitesOriginal());
 
     ngraph::pass::VisualizeTree("svg/test.actual.svg").run_on_model(function);
 }
