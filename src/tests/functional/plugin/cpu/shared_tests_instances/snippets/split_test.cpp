@@ -9,6 +9,7 @@
 using namespace LayerTestsDefinitions;
 using namespace ngraph;
 
+
 namespace {
 
 const std::vector<SplitTestValues> testValues = {
@@ -43,7 +44,7 @@ const std::vector<SplitTestValues> testValues = {
 //        {1, 10, 16, 16},
 //        {{1, 10, 16, 16}, {1, 10, 16, 16}},
 //        5, 1
-//    }
+//    },
     {
         {1, 10, 16, 16},
         {{1, 10, 1, 1}, {}},
@@ -56,14 +57,9 @@ const std::vector<SplitTestValues> testValues = {
     }
 };
 
-std::vector<size_t> input_batches = {
-    1ul,
-    2ul
-};
+std::vector<size_t> input_batches = { 1ul, 2ul };
 
-std::vector<ov::element::Type> input_types = {
-    ov::element::f32,
-};
+std::vector<ov::element::Type> input_types = { ov::element::f32 };
 
 INSTANTIATE_TEST_SUITE_P(
     smoke_Snippets,

@@ -65,7 +65,9 @@ void SplitTest::SetUp() {
         values.constantShapes,
         ov::test::snippets::FunctionHelper::makePrerequisitesOriginal());
 
+#ifdef SNIPPETS_DEBUG
     ngraph::pass::VisualizeTree("svg/test.actual.svg").run_on_model(function);
+#endif
 }
 
 void SplitTest::run() {

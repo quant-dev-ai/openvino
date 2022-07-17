@@ -234,7 +234,9 @@ void compare(const ov::Tensor& expected,
         double expected_value = expected_data[i];
         double actual_value = actual_data[i];
 
+#ifdef SNIPPETS_DEBUG
         std::cout << "\t" << i <<":\texpected: " << expected_value << "\t|\tactual: " << actual_value << std::endl;
+#endif
 
         auto error = [&] (Error& err, double val, double threshold) {
             if (less(err.max, val)) {

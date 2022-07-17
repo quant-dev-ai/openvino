@@ -101,7 +101,9 @@ ConcatenateConstants::ConcatenateConstants() {
         }
 
         auto body = subgraph->get_body();
+#ifdef SNIPPETS_DEBUG
         ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.1.svg").run_on_model(body);
+#endif
 
         // TODO: first version limitation
         const size_t axis = 0;
@@ -127,7 +129,9 @@ ConcatenateConstants::ConcatenateConstants() {
 
             if ((constant != nullptr) &&
                 (ov::shape_size(constant->get_shape()) != 1ul) &&
-                (constant->get_shape()[0] == 1ul)) {
+                (constant->get_shape()[0] == 1ul) &&
+                // TODO: temporary limit to test
+                (constant->get_shape().size() == 4ul)) {
                 if (!concatenatedConstantWasAdded) {
                     concatenatedConstantFriendlyName = constant->get_friendly_name();
                     concatenatedConstantWasAdded = true;
@@ -182,7 +186,9 @@ ConcatenateConstants::ConcatenateConstants() {
                     std::make_shared<opset1::Constant>(element::i32, Shape{ 1ul }, std::vector<size_t>{axis}),
                     std::make_shared<opset1::Constant>(element::i32, Shape{ split_lengths.size() }, split_lengths));
 
+#ifdef SNIPPETS_DEBUG
         ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.2.svg").run_on_model(body);
+#endif
 
         body->validate_nodes_and_infer_types();
 
@@ -206,11 +212,15 @@ ConcatenateConstants::ConcatenateConstants() {
             }
 
             body->remove_parameter(parameter);
+#ifdef SNIPPETS_DEBUG
             std::cout << "removed: " << parameter->get_friendly_name() << std::endl;
+#endif
 
             //auto tragetInputs2 = parameter->output(0).get_target_inputs();
 
-            //ngraph::pass::VisualizeTree("svg/cpu.transforming3.svg").run_on_model(body);
+//#ifdef SNIPPETS_DEBUG
+//            ngraph::pass::VisualizeTree("svg/cpu.transforming3.svg").run_on_model(body);
+//#endif
             //body->validate_nodes_and_infer_types();
         }
         body->add_parameters({ parameter });
@@ -221,7 +231,9 @@ ConcatenateConstants::ConcatenateConstants() {
         replace_node(subgraph, new_subgraph);
         copy_runtime_info(subgraph, new_subgraph);
 
+#ifdef SNIPPETS_DEBUG
         ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.3.svg").run_on_model(body);
+#endif
 
         return true;
     };

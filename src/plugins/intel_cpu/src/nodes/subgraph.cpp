@@ -279,7 +279,9 @@ bool is_concatenated_constant(const std::shared_ptr<Node>& parent) {
     }
 
     if (parent->isConstant() && parent->concatenated) {
+#ifdef SNIPPETS_DEBUG
         std::cout << "DEBUG" << std::endl;
+#endif
         return true;
     }
 
@@ -303,13 +305,16 @@ void Snippet::define_schedule() {
         return result;
     };
     ngraph::snippets::op::Subgraph::BlockedShapeVector input_blocked_shapes;
-    for (size_t i = 0; i < inputShapes.size(); i++) {
-        auto parent_edges = getParentEdgesAtPort(i);
-        auto parent_edge = parent_edges[0];
-        // TODO: here
-        auto blocked_shape = edgeToBlockedShape(parent_edge);
-        input_blocked_shapes.push_back(blocked_shape);
-    }
+    // TODO: just to debug
+    //for (size_t i = 0; i < inputShapes.size(); i++) {
+    //    auto parent_edges = getParentEdgesAtPort(i);
+    //    auto parent_edge = parent_edges[0];
+    //    // TODO: here
+    //    auto blocked_shape = edgeToBlockedShape(parent_edge);
+    //    input_blocked_shapes.push_back(blocked_shape);
+    //}
+    for (size_t i = 0; i < inputShapes.size(); i++)
+        input_blocked_shapes.push_back(edgeToBlockedShape(getParentEdgesAtPort(i)[0]));
 
     ngraph::snippets::op::Subgraph::BlockedShapeVector output_blocked_shapes;
     for (size_t i = 0; i < outputShapes.size(); i++)
@@ -332,24 +337,51 @@ void Snippet::define_schedule() {
     const auto config = getSelectedPrimitiveDescriptor()->getConfig();
     const auto dataSize = config.inConfs[0].getMemDesc()->getPrecision().size();
     auto initOffsets = [this, config, dataSize]() {
+#ifdef SNIPPETS_DEBUG
+        std::cout << "initOffsets: " << std::endl;
+#endif
+
         // find max rank input among all outputs
         const size_t inputNum = getParentEdges().size();
         offsets_in.resize(inputNum);
+        size_t concatenated_index = 0;
+        bool concatenated = false;
         for (size_t i = 0; i < inputNum; i++) {
             auto parent_edges = this->getParentEdgesAtPort(i);
-            bool concatenated = is_concatenated_constant(parent_edges[0]->getParent());
+            if (concatenated == false) {
+                concatenated = is_concatenated_constant(parent_edges[0]->getParent());
+                concatenated_index = i;
+            }
 
             offsets_in[i].resize(tensorRank, 1);
             offset_calculation(offsets_in[i], dims_in[i], exec_domain);
-            // TODO: just to test
-            std::cout << "initOffsets: " << std::endl;
             for (size_t j = 0; j < tensorRank; j++) {
+                offsets_in[i][j] *= dataSize;
                 // TODO: not clear - why not offsets_in[i][0]
-                offsets_in[i][j] *= (concatenated && (j == 1ul)) ? 0ul : dataSize;
+                //offsets_in[i][j] *= (concatenated && (j == 1ul)) ? 0ul : dataSize;
+                //offsets_in[i][j] *= (concatenated && ((j == 1ul) || (j == 2ul))) ? 0ul : dataSize;
+                //if (concatenated && (j == 1ul)) {
+                //    std::cout << "concatenated=" << concatenated << std::endl;
+                //}
                 // TODO: just to test
+                //std::cout << "offsets_in[" << i << "][" << j << "] = " << offsets_in[i][j] << std::endl;
+            }
+        }
+
+        if (concatenated) {
+            //offsets_in[concatenated_index][0] = 0;
+            // TODO: not clear - why we need do it?
+            offsets_in[concatenated_index][1] = 0;
+            //offsets_in[concatenated_index][2] = 0;
+        }
+
+#ifdef SNIPPETS_DEBUG
+        for (size_t i = 0; i < inputNum; i++) {
+            for (size_t j = 0; j < tensorRank; j++) {
                 std::cout << "offsets_in[" << i << "][" << j << "] = " << offsets_in[i][j] << std::endl;
             }
         }
+#endif
 
         start_offset_in.resize(inputNum);
         srcMemPtrs.resize(inputNum);
@@ -357,6 +389,9 @@ void Snippet::define_schedule() {
             const auto memPtr = getParentEdgeAt(i)->getMemoryPtr();
             srcMemPtrs[i] = memPtr;
             start_offset_in[i] =  memPtr->GetDescWithType<BlockedMemoryDesc>()->getOffsetPadding() * dataSize;
+#ifdef SNIPPETS_DEBUG
+            std::cout << "start_offset_in[" << i << "] = " << start_offset_in[i] << std::endl;
+#endif
         }
 
         const size_t outputNum = config.outConfs.size();
@@ -366,6 +401,9 @@ void Snippet::define_schedule() {
             offset_calculation(offsets_out[i], dims_out[i], exec_domain);
             for (size_t j = 0; j < tensorRank; j++) {
                 offsets_out[i][j] *= dataSize;
+#ifdef SNIPPETS_DEBUG
+                std::cout << "offsets_out[" << i << "][" << j << "] = " << offsets_out[i][j] << std::endl;
+#endif
             }
         }
 
@@ -375,6 +413,9 @@ void Snippet::define_schedule() {
             const auto memPtr = getChildEdgeAt(i)->getMemoryPtr();
             dstMemPtrs[i] = memPtr;
             start_offset_out[i] = memPtr->GetDescWithType<BlockedMemoryDesc>()->getOffsetPadding() * dataSize;
+#ifdef SNIPPETS_DEBUG
+            std::cout << "start_offset_out[" << i << "] = " << start_offset_out[i] << std::endl;
+#endif
         }
     };
 
@@ -478,6 +519,7 @@ void Snippet::generate() {
         harness_num_dims = SNIPPETS_MAX_HARNESS_DIMS;
     }
 
+#ifdef SNIPPETS_DEBUG
     // TODO: debug only
     auto display = [&]() {
         std::cout << "jcp.data_offsets: " << std::endl;
@@ -485,20 +527,25 @@ void Snippet::generate() {
             std::cout << "i: " << i << ": " << jcp.data_offsets[i] << std::endl;
         }
     };
+#endif
 
     for (size_t i = 0; i < inputShapes.size(); i++) {
     //for (size_t i = 0; i < (inputShapes.size() - 1); i++) {
         auto b = offsets_in[i].begin();
 
+#ifdef SNIPPETS_DEBUG
         // TODO: debug only
         auto value_b = *b;
         std::cout << "DEBUG: begin: " << value_b << ", end: " << value_b + harness_num_dims << std::endl;
+#endif
 
         // jcp.data_offsets[for constant] = 0
         std::copy(b, b + harness_num_dims, &jcp.data_offsets[i * harness_num_dims]);
 
+#ifdef SNIPPETS_DEBUG
         // TODO: debug only
         display();
+#endif
     }
 
     for (size_t i = 0; i < outputShapes.size(); i++) {
@@ -514,11 +561,13 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
     parallel_for5d(dom[0], dom[1], dom[2], dom[3], dom[4],
         [&](int64_t d0, int64_t d1, int64_t d2, int64_t d3, int64_t d4) {
             int64_t indexes[] = {d0, d1, d2, d3, d4};
+#ifdef SNIPPETS_DEBUG
             // TODO: debug only
             if ((d0 == 0) && (d1 == 1) && (d2 == 0) && (d3 == 0) && (d4 == 0)) {
                 std::cout << "DEBUG: batch #2" << std::endl;
             }
             std::cout << "d0=" << d0 << ", d1=" << d1 << ", d2=" << d2 << ", d3=" << d3 << ", d4=" << d4 << std::endl;
+#endif
             auto callable = schedule.get_callable<kernel>();
             callable(indexes, &call_args);
         });

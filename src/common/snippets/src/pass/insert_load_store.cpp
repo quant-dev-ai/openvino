@@ -22,7 +22,9 @@ ngraph::snippets::pass::InsertLoad::InsertLoad() {
 
             // TODO: PoC
             bool handled = false;
+#ifdef SNIPPETS_DEBUG
             std::cout << "root: " << root->get_friendly_name() << std::endl;
+#endif
             if ((root->outputs().size() == 1ul) && (root->output(0).get_target_inputs().size() == 1ul)) {
                 for (auto& root_output : root->outputs()) {
                     for (auto& root_output_input : root_output.get_target_inputs()) {
@@ -40,7 +42,9 @@ ngraph::snippets::pass::InsertLoad::InsertLoad() {
                                     //auto load = std::make_shared<ngraph::snippets::op::Load>(root_output);
                                     auto load = std::make_shared<ngraph::snippets::op::Load>(split_output);
                                     split_output_input.replace_source_output(load->output(0));
+#ifdef SNIPPETS_DEBUG
                                     std::cout << "split consumer: " << split_output_input.get_node()->get_friendly_name() << std::endl;
+#endif
 
                                     ngraph::copy_runtime_info(root, load);
 
