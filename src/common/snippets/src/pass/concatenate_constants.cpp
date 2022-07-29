@@ -101,7 +101,7 @@ ConcatenateConstants::ConcatenateConstants() {
         }
 
         auto body = subgraph->get_body();
-        ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.1.svg").run_on_model(body);
+        //ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.1.svg").run_on_model(body);
 
         // TODO: first version limitation
         const size_t axis = 1;
@@ -179,7 +179,7 @@ ConcatenateConstants::ConcatenateConstants() {
                     std::make_shared<opset1::Constant>(element::i32, Shape{ 1ul }, std::vector<size_t>{axis}),
                     std::make_shared<opset1::Constant>(element::i32, Shape{ split_lengths.size() }, split_lengths));
 
-        ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.2.svg").run_on_model(body);
+        //ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.2.svg").run_on_model(body);
 
         body->validate_nodes_and_infer_types();
 
@@ -218,7 +218,7 @@ ConcatenateConstants::ConcatenateConstants() {
         replace_node(subgraph, new_subgraph);
         copy_runtime_info(subgraph, new_subgraph);
 
-        ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.3.svg").run_on_model(body);
+        //ngraph::pass::VisualizeTree("svg/snippets.concatenate_constants.3.svg").run_on_model(body);
 
         return true;
     };

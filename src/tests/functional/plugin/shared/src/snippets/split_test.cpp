@@ -64,7 +64,7 @@ void SplitTest::SetUp() {
         ov::test::snippets::FunctionHelper::makePrerequisitesOriginal(),
         op);
 
-    ngraph::pass::VisualizeTree("svg/test.actual.svg").run_on_model(function);
+    //ngraph::pass::VisualizeTree("svg/test.actual.svg").run_on_model(function);
 }
 
 TEST_P(SplitTest, CompareWithRefImpl) {

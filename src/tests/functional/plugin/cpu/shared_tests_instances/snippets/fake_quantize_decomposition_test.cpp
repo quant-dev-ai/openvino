@@ -29,25 +29,25 @@ const std::vector<TestValues> testValuesDecomposition = {
     //    {{}, {}, {1, 3, 1, 1}, {1, 3, 1, 1}}
     //},
 
-//    {
-//        ov::element::f32,
-//        ngraph::Shape{1, 3, 16, 16},
-//        ov::element::f32,
-//        1.f,
-//        {{}, {}, {}, {}}
-//    },
-
     {
         ov::element::f32,
         ngraph::Shape{1, 3, 16, 16},
         ov::element::f32,
         1.f,
-        {{1, 3, 1, 1}, {1, 3, 1, 1}, {1, 3, 1, 1}, {1, 3, 1, 1}}
+        {{}, {}, {}, {}}
     },
+
+    //{
+    //    ov::element::f32,
+    //    ngraph::Shape{1, 3, 16, 16},
+    //    ov::element::f32,
+    //    1.f,
+    //    {{1, 3, 1, 1}, {1, 3, 1, 1}, {1, 3, 1, 1}, {1, 3, 1, 1}}
+    //},
 };
 
 std::vector<std::pair<std::shared_ptr<Node>, std::pair<std::string, std::string>>> operations = {
-    {std::make_shared<ngraph::opset1::Parameter>(), {"FakeQuantize", "fakeQuantize"}},
+    {std::make_shared<ngraph::opset1::Parameter>(), {"Subgraph", "fakeQuantize"}},
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -56,7 +56,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(
         ::testing::ValuesIn(testValuesDecomposition),
         ::testing::ValuesIn(operations),
-        ::testing::Values(std::pair<size_t, size_t>{2, 0}),
+        ::testing::Values(std::pair<size_t, size_t>{4, 1}),
         ::testing::Values(CommonTestUtils::DEVICE_CPU)),
     FakeQuantizeDecompositionTest::getTestCaseName);
 }  // namespace decompositionIgnore

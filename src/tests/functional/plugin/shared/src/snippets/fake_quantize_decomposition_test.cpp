@@ -64,7 +64,7 @@ void FakeQuantizeDecompositionTest::SetUp() {
         ov::test::snippets::FunctionHelper::makePrerequisitesOriginal(),
         op);
 
-    ngraph::pass::VisualizeTree("svg/cpu.actual.svg").run_on_model(function);
+    //ngraph::pass::VisualizeTree("svg/cpu.actual.svg").run_on_model(function);
 }
 
 TEST_P(FakeQuantizeDecompositionTest, CompareWithRefImpl) {

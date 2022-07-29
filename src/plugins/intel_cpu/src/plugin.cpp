@@ -182,7 +182,7 @@ Engine::~Engine() {
 
 static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function> nGraphFunc, const bool _enableLPT,
                                                const bool _enableSnippets, const bool isLegacyApi) {
-    ngraph::pass::VisualizeTree("svg/cpu.original.svg").run_on_model(nGraphFunc);
+    //ngraph::pass::VisualizeTree("svg/cpu.original.svg").run_on_model(nGraphFunc);
 
     ngraph::pass::Manager manager;
     manager.set_per_pass_validation(false);
@@ -506,7 +506,7 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         lptManager.run_passes(nGraphFunc);
     }
 
-    ngraph::pass::VisualizeTree("svg/cpu.common.svg").run_on_model(nGraphFunc);
+    //ngraph::pass::VisualizeTree("svg/cpu.common.svg").run_on_model(nGraphFunc);
 
     ngraph::pass::Manager postLPTPassManager;
     postLPTPassManager.register_pass<ngraph::pass::UnrollTensorIterator>();
@@ -527,7 +527,7 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
     postLPTPassManager.run_passes(nGraphFunc);
 
     if (_enableSnippets && dnnl::impl::cpu::x64::mayiuse(dnnl::impl::cpu::x64::avx2)) {
-        ngraph::pass::VisualizeTree("svg/cpu.snippets.original.svg").run_on_model(nGraphFunc);
+        //ngraph::pass::VisualizeTree("svg/cpu.snippets.original.svg").run_on_model(nGraphFunc);
 
         ngraph::pass::Manager tokenization_manager;
         tokenization_manager.register_pass<SnippetsMarkSkipped>();
@@ -561,14 +561,14 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         tokenization_manager.register_pass<ngraph::snippets::pass::ConstantFolding>();
         tokenization_manager.run_passes(nGraphFunc);
 
-        ngraph::pass::VisualizeTree("svg/cpu.snippets.transformed_before_concatenate.svg").run_on_model(nGraphFunc);
+        //ngraph::pass::VisualizeTree("svg/cpu.snippets.transformed_before_concatenate.svg").run_on_model(nGraphFunc);
         {
             ngraph::pass::Manager tokenization_manager;
             tokenization_manager.set_per_pass_validation(false);
             tokenization_manager.register_pass<ngraph::snippets::pass::ConcatenateConstants>();
             tokenization_manager.run_passes(nGraphFunc);
         }
-        ngraph::pass::VisualizeTree("svg/cpu.snippets.transformed_after_concatenate.svg").run_on_model(nGraphFunc);
+        //ngraph::pass::VisualizeTree("svg/cpu.snippets.transformed_after_concatenate.svg").run_on_model(nGraphFunc);
     }
 
     ngraph::pass::Manager fqDecompositionManager;
@@ -580,7 +580,7 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
     fqDecompositionManager.register_pass<ngraph::pass::ConstantFolding>();
     fqDecompositionManager.run_passes(nGraphFunc);
 
-    ngraph::pass::VisualizeTree("svg/cpu.transformed.svg").run_on_model(nGraphFunc);
+    //ngraph::pass::VisualizeTree("svg/cpu.transformed.svg").run_on_model(nGraphFunc);
 }
 
 static void Transformation(CNNNetwork& clonedNetwork, const bool _enableLPT, const bool _enableSnippets, const bool isLegacyApi) {

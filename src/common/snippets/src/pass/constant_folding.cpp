@@ -125,7 +125,7 @@ ConstantFolding::ConstantFolding() {
 
         constants_to_parameters(subgraph, body, parameter_input_ids);
 
-        ngraph::pass::VisualizeTree("svg/snippets.constant_folding.body.svg").run_on_model(body);
+        //ngraph::pass::VisualizeTree("svg/snippets.constant_folding.body.svg").run_on_model(body);
         return true;
     };
 

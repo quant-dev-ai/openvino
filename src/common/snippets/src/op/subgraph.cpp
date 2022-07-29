@@ -131,7 +131,7 @@ auto snippets::op::Subgraph::wrap_node_as_subgraph(const std::shared_ptr<ov::Nod
 Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShapes, const BlockedShapeVector& inputShapes) {
     INTERNAL_OP_SCOPE(Subgraph);
 
-    ngraph::pass::VisualizeTree("svg/snippets.canonicalize.1.svg").run_on_model(m_body);
+    //ngraph::pass::VisualizeTree("svg/snippets.canonicalize.1.svg").run_on_model(m_body);
 
     OV_ITT_SCOPED_TASK(ngraph::pass::itt::domains::SnippetsTransform, "Snippets::canonicalize")
     NODE_VALIDATION_CHECK(this, inputShapes.size() == m_body->get_parameters().size(),
@@ -205,11 +205,11 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
         }
     }
 
-    ngraph::pass::VisualizeTree("svg/snippets.canonicalize.2.svg").run_on_model(m_body);
+    //ngraph::pass::VisualizeTree("svg/snippets.canonicalize.2.svg").run_on_model(m_body);
 
     m_body->validate_nodes_and_infer_types();
 
-    ngraph::pass::VisualizeTree("svg/snippets.canonicalize.3.svg").run_on_model(m_body);
+    //ngraph::pass::VisualizeTree("svg/snippets.canonicalize.3.svg").run_on_model(m_body);
 
     auto skipStartEndOnes = [](const Shape& shape) {
         auto begin = shape.begin();
@@ -245,7 +245,7 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
     }
     exec_domain = outPShape.get_shape();
 
-    ngraph::pass::VisualizeTree("svg/snippets.canonicalize.4.svg").run_on_model(m_body);
+    //ngraph::pass::VisualizeTree("svg/snippets.canonicalize.4.svg").run_on_model(m_body);
     return exec_domain;
 }
 
@@ -256,7 +256,7 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
         return n->get_input_shape(0).back() != 1;
     };
 
-    ngraph::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.1.svg").run_on_model(m_body);
+    //ngraph::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.1.svg").run_on_model(m_body);
 
     {
         ngraph::pass::Manager manager;
@@ -271,7 +271,7 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
         // ReplaceLoadsWithSplitScalarLoads => ReplaceLoadsWithSplitLoads (Loads) : (InsertSplitLoads)
         manager.register_pass<snippets::pass::ReplaceLoadsWithSplitLoads>();
         manager.run_passes(m_body);
-        ngraph::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.2.svg").run_on_model(m_body);
+        //ngraph::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.2.svg").run_on_model(m_body);
     }
 
     {
@@ -303,7 +303,7 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
             set_callback<ngraph::snippets::pass::ReplaceStoresWithScalarStores>(skip_matching_domain);
         }
         manager.run_passes(m_body);
-        ngraph::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.3.svg").run_on_model(m_body);
+        //ngraph::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.3.svg").run_on_model(m_body);
     }
 }
 
@@ -334,11 +334,11 @@ snippets::Schedule snippets::op::Subgraph::generate(ngraph::pass::Manager& opt, 
     convert_to_snippet_dialect();
     opt.run_passes(m_body);
 
-    ngraph::pass::VisualizeTree("svg/snippets.assign_registers.before.svg").run_on_model(m_body);
+    //ngraph::pass::VisualizeTree("svg/snippets.assign_registers.before.svg").run_on_model(m_body);
     // generation flow
     snippets::pass::AssignRegisters().run_on_model(m_body);
 
-    ngraph::pass::VisualizeTree("svg/snippets.assign_registers.after.svg").run_on_model(m_body);
+    //ngraph::pass::VisualizeTree("svg/snippets.assign_registers.after.svg").run_on_model(m_body);
 
     // schedule generation should go here and be target agnostic
 
