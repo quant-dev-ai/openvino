@@ -102,7 +102,7 @@ ConcatenateConstants::ConcatenateConstants() {
 
         auto body = subgraph->get_body();
 
-        // TODO: first version limitation
+        // TODO: snippets: first version limitation
         const size_t axis = 0;
         std::vector<size_t> split_lengths;
 
@@ -115,19 +115,17 @@ ConcatenateConstants::ConcatenateConstants() {
         bool concatenatedConstantWasAdded = false;
         ngraph::element::Type inputPrecision;
 
-        // TODO: workaround
-        //for (auto i = 0;  i < subgraph->get_input_size(); ++i) {
-        for (int i = (subgraph->get_input_size() - 1);  i >= 0; --i) {
-            auto target_input = subgraph->input(i);
+        // TODO: snippets: workaround
+        for (auto target_input : subgraph->inputs()) {
             auto source_output = target_input.get_source_output();
             auto constant = as_type_ptr<opset1::Constant>(source_output.get_node()->shared_from_this());
 
-            // TODO: first version: 1) add shape limitation check 2) per 1 axis only 2) no precision check
+            // TODO: snippets: first version: 1) add shape limitation check 2) per 1 axis only 2) no precision check
 
             if ((constant != nullptr) &&
                 (ov::shape_size(constant->get_shape()) != 1ul) &&
                 (constant->get_shape()[0] == 1ul) &&
-                // TODO: temporary limit to test
+                // TODO: snippets: temporary limit to test
                 (constant->get_shape().size() == 4ul)) {
                 if (!concatenatedConstantWasAdded) {
                     concatenatedConstantFriendlyName = constant->get_friendly_name();
@@ -135,14 +133,13 @@ ConcatenateConstants::ConcatenateConstants() {
                     inputPrecision = constant->output(0).get_element_type();
                 }
                 const auto& shape = constant->output(0).get_shape();
-                //const size_t split_length = shape.size() >= (axis + 1ul) ? shape[axis] : 1ul;
                 split_lengths.push_back(shape[axis]);
 
                 constant->output(0).remove_target_input(target_input);
 
                 constant_input_ids.emplace(constant->get_friendly_name(), constant);
                 outputs.push_back(constant->output(0));
-                indexByFriendlyName[constant->get_friendly_name()] = split_lengths.size() - 1;
+                indexByFriendlyName[constant->get_friendly_name()] = target_input.get_index() - 1;
                 continue;
             } else {
                 previousInputs.push_back(source_output);
@@ -178,6 +175,7 @@ ConcatenateConstants::ConcatenateConstants() {
                     parameter,
                     std::make_shared<opset1::Constant>(element::i32, Shape{}, std::vector<size_t>{axis}),
                     split_lengths.size())) :
+                // TODO: really? need test for that
                 std::make_shared<opset1::VariadicSplit>(
                     parameter,
                     std::make_shared<opset1::Constant>(element::i32, Shape{ 1ul }, std::vector<size_t>{axis}),
@@ -187,22 +185,23 @@ ConcatenateConstants::ConcatenateConstants() {
 
         auto parameters = body->get_parameters();
         for (auto i = 0; i < parameters.size(); ++i) {
-            auto parameter = parameters[i];
-            auto it = constant_input_ids.find(parameter->get_friendly_name());
+            auto tmp_parameter = parameters[i];
+            auto it = constant_input_ids.find(tmp_parameter->get_friendly_name());
             if (it == constant_input_ids.end()) {
                 continue;
             }
 
-            auto indexIt = indexByFriendlyName.find(parameter->get_friendly_name());
+            auto indexIt = indexByFriendlyName.find(tmp_parameter->get_friendly_name());
             if (indexIt == indexByFriendlyName.end()) {
                 throw ngraph_error("parameter was not mapped");
             }
 
-            for (auto input : parameter->output(0).get_target_inputs()) {
-                input.replace_source_output(split->output(indexIt->second));
+            for (auto input : tmp_parameter->output(0).get_target_inputs()) {
+                auto index = indexIt->second;
+                input.replace_source_output(split->output(index));
             }
 
-            body->remove_parameter(parameter);
+            body->remove_parameter(tmp_parameter);
         }
         body->add_parameters({ parameter });
         body->validate_nodes_and_infer_types();

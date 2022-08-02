@@ -28,23 +28,33 @@ ngraph::snippets::pass::InsertLoad::InsertLoad() {
                         if (split != nullptr) {
                             auto offset = 0ul;
                             const auto output_size = split->get_output_size();
+                            // TODO : snippets: use `split->outputs()` instead index
                             for (auto split_output_index = 0ul; split_output_index < output_size; ++split_output_index) {
                                 const auto& split_output = split->output(split_output_index);
-                                // TODO: need test for that
-                                for (auto& split_output_input : split_output.get_target_inputs()) {
-                                    auto load = std::make_shared<ngraph::snippets::op::Load>(split_output);
-                                    split_output_input.replace_source_output(load->output(0));
-
-                                    ngraph::copy_runtime_info(root, load);
-
-                                    if (split_output_index != 0) {
-                                        load->offset = offset;
-                                    }
-
-                                    // TODO: concatenation was done by batch <= add tests to ignore: when constant has batch
-                                    offset += ov::shape_size(split_output.get_shape()) * split_output.get_element_type().bitwidth() / 8;
-                                    handled = true;
+                                const auto target_inputs = split_output.get_target_inputs();
+                                if (target_inputs.size() != 1ul) {
+                                    continue;
                                 }
+
+                                // TODO: snippets: need test for that
+                                const auto& split_output_input = *target_inputs.begin();
+                                auto load = std::make_shared<ngraph::snippets::op::Load>(split_output);
+                                if (load == nullptr) {
+                                    continue;
+                                }
+                                split_output_input.replace_source_output(load->output(0));
+
+                                ngraph::copy_runtime_info(root, load);
+
+                                if (split_output_index != 0) {
+                                    load->offset = offset;
+                                }
+
+                                // TODO: snippets: concatenation was done by batch <= add tests to ignore: when constant has batch
+                                // TODO: snippets: 8 is hardcoded
+                                offset += ov::shape_size(split_output.get_shape()) * split_output.get_element_type().bitwidth() / 8;
+
+                                handled = true;
                             }
                         }
                     }

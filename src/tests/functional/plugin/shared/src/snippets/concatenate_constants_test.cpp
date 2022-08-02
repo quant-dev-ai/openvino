@@ -3,21 +3,18 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "snippets/split_test.hpp"
+#include "snippets/concatenate_constants_test.hpp"
 
 #include <memory>
 #include <tuple>
-#include <vector>
-#include <string>
 
-#include <ie_core.hpp>
 #include "ngraph_ops/type_relaxed.hpp"
-#include "split_function.hpp"
+#include "concatenate_constants_function.hpp"
 #include "function_helper.hpp"
 
 namespace LayerTestsDefinitions {
 
-std::string SplitTest::getTestCaseName(testing::TestParamInfo<testsParams> obj) {
+std::string ConcatenateConstantsTest::getTestCaseName(testing::TestParamInfo<testsParams> obj) {
     std::ostringstream result;
     auto values = std::get<0>(obj.param);
     const size_t input_branch = std::get<1>(obj.param);
@@ -37,7 +34,7 @@ std::string SplitTest::getTestCaseName(testing::TestParamInfo<testsParams> obj) 
     return result.str();
 }
 
-void SplitTest::SetUp() {
+void ConcatenateConstantsTest::SetUp() {
     // TODO: why is default abs_threshold value 385.25 ???
     abs_threshold = 0.01;
     // TODO: why is default rel_threshold value 1.79769e+308
@@ -59,14 +56,14 @@ void SplitTest::SetUp() {
 
     init_input_shapes({{values.inputShape, {values.inputShape}}});
 
-    function = ov::test::snippets::SplitFunction::get(
+    function = ov::test::snippets::ConcatenateConstantsFunction::get(
         {values.inputShape},
         input_type,
         values.constantShapes,
         ov::test::snippets::FunctionHelper::makePrerequisitesOriginal());
 }
 
-void SplitTest::run() {
+void ConcatenateConstantsTest::run() {
     SubgraphBaseTest::run();
 
     const auto params = std::get<0>(GetParam());
@@ -75,7 +72,7 @@ void SplitTest::run() {
     validateNumSubgraphs();
 }
 
-TEST_P(SplitTest, CompareWithRefImpl) {
+TEST_P(ConcatenateConstantsTest, CompareWithRefImpl) {
     run();
 };
 

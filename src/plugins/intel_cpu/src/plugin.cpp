@@ -139,6 +139,8 @@
 #include <cpu/x64/cpu_isa_traits.hpp>
 #include <itt.h>
 
+#include <snippets/op/subgraph.hpp>
+
 using namespace InferenceEngine;
 
 #define IE_CPU_PLUGIN_THROW(...) IE_THROW(__VA_ARGS__) << "CPU plugin: "
@@ -182,6 +184,8 @@ Engine::~Engine() {
 
 static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function> nGraphFunc, const bool _enableLPT,
                                                const bool _enableSnippets, const bool isLegacyApi) {
+    ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.original.svg").run_on_model(nGraphFunc);
+
     ngraph::pass::Manager manager;
     manager.set_per_pass_validation(false);
     manager.register_pass<ngraph::pass::InitNodeInfo>();
@@ -442,6 +446,14 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
 
     manager.run_passes(nGraphFunc);
 
+    ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.common.svg").run_on_model(nGraphFunc);
+
+    //ngraph::pass::Manager fqDecompositionManager2;
+    //fqDecompositionManager2.register_pass<ngraph::pass::FakeQuantizeDecomposition>();
+    //fqDecompositionManager2.register_pass<ngraph::pass::ConstantFolding>();
+    //fqDecompositionManager2.run_passes(nGraphFunc);
+    //ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.fake_quantize_decomposition.svg").run_on_model(nGraphFunc);
+
     using namespace ngraph::pass::low_precision;
     if (useLpt) {
         CPU_LPT_SCOPE(LowPrecisionTransformations_Part4);
@@ -504,6 +516,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         lptManager.run_passes(nGraphFunc);
     }
 
+    ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.lpt.svg").run_on_model(nGraphFunc);
+
     ngraph::pass::Manager postLPTPassManager;
     postLPTPassManager.register_pass<ngraph::pass::UnrollTensorIterator>();
     postLPTPassManager.register_pass<ReshapePRelu>();
@@ -521,6 +535,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
 
     postLPTPassManager.register_pass<ngraph::pass::ConstantFolding>();
     postLPTPassManager.run_passes(nGraphFunc);
+
+    ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.post_lpt.svg").run_on_model(nGraphFunc);
 
     if (_enableSnippets && dnnl::impl::cpu::x64::mayiuse(dnnl::impl::cpu::x64::avx2)) {
         ngraph::pass::Manager tokenization_manager;
@@ -553,8 +569,44 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
                 });
         tokenization_manager.register_pass<ngraph::snippets::pass::CommonOptimizations>();
         tokenization_manager.register_pass<ngraph::snippets::pass::ConstantFolding>();
-        tokenization_manager.register_pass<ngraph::snippets::pass::ConcatenateConstants>();
         tokenization_manager.run_passes(nGraphFunc);
+        {
+            ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.snippets.concatenate_constants1.svg").run_on_model(nGraphFunc);
+            for (auto node : nGraphFunc->get_ops()) {
+                auto subgraph = ngraph::as_type_ptr<ngraph::snippets::op::Subgraph>(node);
+                if (subgraph != nullptr) {
+                    ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.snippets.concatenate_constants1.body.svg").run_on_model(
+                            subgraph->get_body());
+
+                    //std::cout << "subgraph inputs order: " << std::endl;
+                    //for (auto i = 0; i < subgraph->get_input_size(); ++i) {
+                    //    std::cout << "\t" << subgraph->input(i).get_source_output().get_node()->get_friendly_name() << std::endl;
+                    //}
+                    //
+                    //std::cout << "body parameters order: " << std::endl;
+                    //for (auto p : subgraph->get_body()->get_parameters()) {
+                    //    auto child = p->output(0).get_target_inputs().begin()->get_node();
+                    //    std::cout << "\t" << p->get_friendly_name() << " -> " << child->get_friendly_name() << std::endl;
+                    //}
+
+                    break;
+                }
+            }
+
+            ngraph::pass::Manager tokenization_manager2;
+            tokenization_manager2.register_pass<ngraph::snippets::pass::ConcatenateConstants>();
+            tokenization_manager2.run_passes(nGraphFunc);
+
+            ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.snippets.concatenate_constants2.svg").run_on_model(nGraphFunc);
+            for (auto node : nGraphFunc->get_ops()) {
+                auto subgraph = ngraph::as_type_ptr<ngraph::snippets::op::Subgraph>(node);
+                if (subgraph != nullptr) {
+                    ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.snippets.concatenate_constants2.body.svg").run_on_model(
+                            subgraph->get_body());
+                    break;
+                }
+            }
+        }
     }
 
     ngraph::pass::Manager fqDecompositionManager;
@@ -565,6 +617,16 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         });
     fqDecompositionManager.register_pass<ngraph::pass::ConstantFolding>();
     fqDecompositionManager.run_passes(nGraphFunc);
+
+    ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.transformed.svg").run_on_model(nGraphFunc);
+
+    for (auto node : nGraphFunc->get_ops()) {
+        auto subgraph = ngraph::as_type_ptr<ngraph::snippets::op::Subgraph>(node);
+        if (subgraph != nullptr) {
+            ov::pass::VisualizeTree("/Users/eshoguli/projects/temp/svg/cpu.transformed.body.svg").run_on_model(subgraph->get_body());
+            break;
+        }
+    }
 }
 
 static void Transformation(CNNNetwork& clonedNetwork, const bool _enableLPT, const bool _enableSnippets, const bool isLegacyApi) {

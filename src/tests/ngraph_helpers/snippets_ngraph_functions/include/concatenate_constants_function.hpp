@@ -10,7 +10,7 @@ namespace ov {
 namespace test {
 namespace snippets {
 
-class SplitFunction {
+class ConcatenateConstantsFunction {
 public:
     static std::shared_ptr<ov::Model> get(
         const ngraph::Shape& inputShape,

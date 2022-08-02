@@ -12,7 +12,6 @@
 #include "snippets/pass/assign_registers.hpp"
 #include "snippets/pass/convert_constants.hpp"
 #include "snippets/pass/convert_power_to_powerstatic.hpp"
-#include "snippets/pass/replace_loads_with_split_loads.hpp"
 #include "snippets/pass/vector_to_scalar.hpp"
 
 #include <ngraph/pass/manager.hpp>
@@ -20,7 +19,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <array>
 
 using namespace std;
 using namespace ngraph;
@@ -84,6 +82,7 @@ auto snippets::op::Subgraph::wrap_node_as_subgraph(const std::shared_ptr<ov::Nod
         } else {
             auto parameter = std::make_shared<ngraph::opset1::Parameter>(input.get_element_type(), input.get_partial_shape());
             body_parameters.push_back(parameter);
+            // TODO: snippets: here names are mapped
             body_parameters.back()->set_friendly_name(input.get_node()->get_friendly_name());
             body_inputs.push_back(parameter->output(0));
 
@@ -227,11 +226,9 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     ngraph::pass::Manager manager;
     manager.register_pass<snippets::pass::ConvertConstants>();
     manager.register_pass<snippets::pass::ConvertPowerToPowerStatic>();
-    // TODO: think about: here: fake Split is here instead InsertLoad
     manager.register_pass<snippets::pass::InsertLoad>();
     manager.register_pass<snippets::pass::InsertStore>();
     manager.register_pass<snippets::pass::InsertMoveBroadcast>();
-    manager.register_pass<snippets::pass::ReplaceLoadsWithSplitLoads>();
     manager.register_pass<snippets::pass::LoadMoveBroadcastToBroadcastLoad>();
     // Note that, BrodacastMove is typically inserted right after the Load. Such cases are typical for
     // simple subgraphs where one of the ngraph::op's inputs is broadcasted to match the larger one. However, BroadcastMove

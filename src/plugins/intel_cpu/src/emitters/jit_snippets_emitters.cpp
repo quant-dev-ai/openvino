@@ -381,6 +381,8 @@ void FakeBroadcastEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void FakeBroadcastEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_BROADCAST);
+
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     assert(source_output_indexes.empty() || (source_output_indexes.size() == 1ul));
@@ -394,6 +396,8 @@ void FakeBroadcastEmitter::emit_isa(const std::vector<size_t> &in, const std::ve
             h->uni_vmovups(vmm_dst, vmm_src0);
         }
     }
+
+    insert_marker(MARKER_BROADCAST);
 }
 
 ScalarEmitter::ScalarEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -422,10 +426,14 @@ void ScalarEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ScalarEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_SCALAR);
+
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Vmm vmm_dst  = Vmm(out[0]);
     h->uni_vbroadcastss(vmm_dst, table_val("scalar"));
+
+    insert_marker(MARKER_SCALAR);
 }
 
 
@@ -457,12 +465,16 @@ void StoreEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void StoreEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_STORE);
+
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 out_reg(static_cast<int>(out[0]));
     Vmm vmm_src0 = Vmm(in[0]);
     h->uni_vmovups(h->ptr[out_reg], vmm_src0);
     h->add(out_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+
+    insert_marker(MARKER_STORE);
 }
 
 ScalarStoreEmitter::ScalarStoreEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -502,26 +514,24 @@ LoadEmitter::LoadEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu
                          : MemoryEmitter(h, isa, n) {
     in_out_type_ = emitter_in_out_map::gpr_to_vec;
 
+    auto load = ov::as_type_ptr<ngraph::snippets::op::Load>(n);
+    if (load == nullptr) {
+        // TODO: snippets: throw exception
+        throw std::exception();
+    }
+
     if (*n->get_input_shape(0).rbegin() != 1) {
         const auto input_node = n->get_input_node_shared_ptr(0);
         if (ov::is_type<ngraph::opset1::Split>(input_node)) {
-            // TODO: fake split consumers order is important: the latest Load increment memory pointer
-            // TODO: fake split: add check: has to have only one consumer for one output port
-            shouldPostIncrement = n->input(0).get_source_output().get_index() == (input_node->outputs().size() - 1ul);
+            //// TODO: fake split consumers order is important: the latest Load increment memory pointer
+            //// TODO: fake split: add check: has to have only one consumer for one output port
+            //shouldPostIncrement = n->input(0).get_source_output().get_index() == (input_node->outputs().size() - 1ul);
+            shouldPostIncrement = load->should_post_increment;
         } else {
             shouldPostIncrement = true;
         }
     } else {
         shouldPostIncrement = false;
-    }
-//    // TODO: just to debug
-//    if (n->get_friendly_name() == "Load_2899") {
-//        shouldPostIncrement = false;
-//    }
-
-    auto load = ov::as_type_ptr<ngraph::snippets::op::Load>(n);
-    if (load == nullptr) {
-        //
     }
 
     offset = load->offset;
@@ -546,16 +556,21 @@ void LoadEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void LoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_LOAD);
+
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 in_reg(static_cast<int>(in[0]));
     Vmm vmm_src0 = Vmm(out[0]);
 
+    // TODO: snippets: just to test
+    h->uni_vmovups(vmm_src0, h->ptr[in_reg]);
+
     if (offset != 0ul) {
         h->add(in_reg, offset);
     }
 
-    // TODO: move with offset?
+    // TODO: snippets: move with offset?
     h->uni_vmovups(vmm_src0, h->ptr[in_reg]);
 
     if (offset != 0ul) {
@@ -565,6 +580,8 @@ void LoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size
     if (shouldPostIncrement) {
         h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
     }
+
+    insert_marker(MARKER_LOAD);
 }
 
 BroadcastLoadEmitter::BroadcastLoadEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -591,6 +608,8 @@ void BroadcastLoadEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void BroadcastLoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_BROADCAST_LOAD);
+
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 in_reg(in[0]);
@@ -599,6 +618,8 @@ void BroadcastLoadEmitter::emit_isa(const std::vector<size_t> &in, const std::ve
     // In doesn't really matter if we broadcast or `movss` for vector tails so keep only one version for `BroadcastLoad`,
     // key point here is not to add post-increment, it might be fixed by some other approach in future
     h->uni_vbroadcastss(vmm_src0, h->ptr[in_reg]);
+
+    insert_marker(MARKER_BROADCAST_LOAD);
 }
 
 
@@ -627,6 +648,8 @@ void ScalarLoadEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ScalarLoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_SCALAR_LOAD);
+
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 in_reg(static_cast<int>(in[0]));
@@ -637,6 +660,8 @@ void ScalarLoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vecto
     if (shouldPostIncrement) {
         h->add(in_reg, sizeof(float));
     }
+
+    insert_marker(MARKER_SCALAR_LOAD);
 }
 }   // namespace intel_cpu
 }   // namespace ov

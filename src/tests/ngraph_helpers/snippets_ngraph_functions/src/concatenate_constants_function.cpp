@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "split_function.hpp"
+#include "concatenate_constants_function.hpp"
 #include "common_test_utils/data_utils.hpp"
 #include <snippets/snippets_isa.hpp>
 #include "function_helper.hpp"
@@ -11,7 +11,7 @@ namespace ov {
 namespace test {
 namespace snippets {
 
-std::shared_ptr<ov::Model> SplitFunction::get(
+std::shared_ptr<ov::Model> ConcatenateConstantsFunction::get(
     const ngraph::Shape& inputShape,
     const element::Type inputType,
     const std::vector<ngraph::Shape>& constantShapes,
@@ -41,13 +41,13 @@ std::shared_ptr<ov::Model> SplitFunction::get(
     const auto multiply_value = ngraph::opset1::Constant::create(
             element::f32,
             constantShapes[0],
-            generate_values(constantShapes[0], 1.f));
+            generate_values(constantShapes[0], 2.f));
     parent = std::make_shared<ngraph::opset1::Multiply>(parent, multiply_value);
 
     const auto add_value = ngraph::opset1::Constant::create(
             element::f32,
             constantShapes[1],
-            generate_values(constantShapes[1], shape_size(constantShapes[0]) + 1.f));
+            generate_values(constantShapes[1], shape_size(constantShapes[0]) + 2.f));
     parent = std::make_shared<ngraph::opset1::Add>(parent, add_value);
 
     const auto result = std::make_shared<ngraph::opset1::Result>(parent);

@@ -27,6 +27,19 @@ struct emitter_context {
     virtual ~emitter_context() = default;
 };
 
+#define MARKER_LOAD 5
+#define MARKER_BROADCAST 6
+#define MARKER_BROADCAST_LOAD 7
+#define MARKER_MULTIPLY 8
+#define MARKER_ADD 9
+#define MARKER_STORE 10
+#define MARKER_MAXIMUM 11
+#define MARKER_MINIMUM 12
+#define MARKER_SUBTRACT 13
+#define MARKER_DNN_EMITTER 14
+#define MARKER_SCALAR_LOAD 16
+#define MARKER_SCALAR 14
+
 class jit_emitter : public ngraph::snippets::Emitter {
 public:
     jit_emitter(dnnl::impl::cpu::x64::jit_generator* host, dnnl::impl::cpu::x64::cpu_isa_t host_isa,
@@ -141,6 +154,9 @@ protected:
             push_arg_entry_of(key, te.val, te.bcast);
         }
     }
+
+    // TODO: snippets: just to debug
+    void insert_marker(const size_t marker) const;
 
 private:
     mutable std::vector<size_t> preserved_vec_idxs;

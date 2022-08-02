@@ -4,7 +4,7 @@
 
 #include <vector>
 
-#include "snippets/split_test.hpp"
+#include "snippets/concatenate_constants_test.hpp"
 
 using namespace LayerTestsDefinitions;
 using namespace ngraph;
@@ -18,6 +18,7 @@ const std::vector<SplitTestValues> testValues = {
         {{1, 3, 1, 1}, {1, 3, 1, 1}},
         5, 1
     },
+    // TODO: snippets: have to be skipped
 //    {
 //        {1, 3, 16, 16},
 //        {{1, 3, 16, 16}, {1, 3, 16, 16}},
@@ -63,13 +64,13 @@ std::vector<ov::element::Type> input_types = { ov::element::f32 };
 
 INSTANTIATE_TEST_SUITE_P(
     smoke_Snippets,
-    SplitTest,
+    ConcatenateConstantsTest,
     ::testing::Combine(
         ::testing::ValuesIn(testValues),
         ::testing::ValuesIn(input_batches),
         ::testing::ValuesIn(input_types),
         ::testing::Values(std::pair<size_t, size_t>{2, 0}),
         ::testing::Values(CommonTestUtils::DEVICE_CPU)),
-    SplitTest::getTestCaseName);
+    ConcatenateConstantsTest::getTestCaseName);
 
 }  // namespace
