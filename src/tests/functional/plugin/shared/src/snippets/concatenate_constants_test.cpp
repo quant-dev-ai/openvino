@@ -27,7 +27,8 @@ std::string ConcatenateConstantsTest::getTestCaseName(testing::TestParamInfo<tes
     result << "netPRC=" << input_type << "_";
     result << "D=" << targetDevice << "_";
     result << "IN=" << input_type << "_";
-    result << "NN=" << values.num_nodes;
+    result << "NN1=" << operations_number.first;
+    result << "NN2=" << operations_number.second;
     for (auto i = 0; i < values.constantShapes.size(); ++i) {
         result << "_SH" << i << "=" << values.constantShapes[i];
     }
@@ -35,9 +36,8 @@ std::string ConcatenateConstantsTest::getTestCaseName(testing::TestParamInfo<tes
 }
 
 void ConcatenateConstantsTest::SetUp() {
-    // TODO: why is default abs_threshold value 385.25 ???
+    // not initialized by default
     abs_threshold = 0.01;
-    // TODO: why is default rel_threshold value 1.79769e+308
     rel_threshold = 0.01;
 
     auto& testsParams = this->GetParam();
@@ -46,13 +46,8 @@ void ConcatenateConstantsTest::SetUp() {
 
     auto input_batch = std::get<1>(testsParams);
     values.inputShape[0] = input_batch;
-
     const auto input_type = std::get<2>(testsParams);
-    const auto operations_number = std::get<3>(testsParams);
     targetDevice = std::get<4>(testsParams);
-
-    ref_num_nodes = operations_number.first;
-    ref_num_subgraphs = operations_number.second;
 
     init_input_shapes({{values.inputShape, {values.inputShape}}});
 
@@ -66,9 +61,10 @@ void ConcatenateConstantsTest::SetUp() {
 void ConcatenateConstantsTest::run() {
     SubgraphBaseTest::run();
 
-    const auto params = std::get<0>(GetParam());
-    this->ref_num_nodes = params.num_nodes;
-    this->ref_num_subgraphs = params.num_subgraphs;
+    const auto operations_number = std::get<3>(GetParam());
+    ref_num_nodes = operations_number.first;
+    ref_num_subgraphs = operations_number.second;
+
     validateNumSubgraphs();
 }
 

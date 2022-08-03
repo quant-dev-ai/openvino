@@ -115,18 +115,35 @@ ConcatenateConstants::ConcatenateConstants() {
         bool concatenatedConstantWasAdded = false;
         ngraph::element::Type inputPrecision;
 
-        // TODO: snippets: workaround
         for (auto target_input : subgraph->inputs()) {
             auto source_output = target_input.get_source_output();
             auto constant = as_type_ptr<opset1::Constant>(source_output.get_node()->shared_from_this());
 
-            // TODO: snippets: first version: 1) add shape limitation check 2) per 1 axis only 2) no precision check
+            // TODO: snippets: first version: 1) per 1 axis only
+            auto check_constant = [](const std::shared_ptr<opset1::Constant>& constant) {
+                if (constant->get_element_type() != ngraph::element::f32) {
+                    return false;
+                }
 
-            if ((constant != nullptr) &&
-                (ov::shape_size(constant->get_shape()) != 1ul) &&
-                (constant->get_shape()[0] == 1ul) &&
-                // TODO: snippets: temporary limit to test
-                (constant->get_shape().size() == 4ul)) {
+                const auto shape = constant->get_shape();
+                const auto shape_size = shape.size();
+                if (shape.empty() || (shape_size == 1ul)) {
+                    return true;
+                }
+
+                if (shape[0] != 1ul) {
+                    return false;
+                }
+
+                for (auto i = 1ul; i <= (shape_size - 2ul); ++i) {
+                    if (shape[shape_size - i] != 1ul) {
+                        return false;
+                    }
+                }
+
+                return true;
+            };
+            if ((constant != nullptr) && check_constant(constant)) {
                 if (!concatenatedConstantWasAdded) {
                     concatenatedConstantFriendlyName = constant->get_friendly_name();
                     concatenatedConstantWasAdded = true;

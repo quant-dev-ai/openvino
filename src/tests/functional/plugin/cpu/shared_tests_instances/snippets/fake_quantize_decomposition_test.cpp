@@ -32,7 +32,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Combine(
         ::testing::ValuesIn(testValuesDecomposition),
         ::testing::ValuesIn(operations),
-        ::testing::Values(std::pair<size_t, size_t>{12, 1}),
+        ::testing::Values(std::pair<size_t, size_t>{13, 1}),
         ::testing::Values(CommonTestUtils::DEVICE_CPU)),
     FakeQuantizeDecompositionTest::getTestCaseName);
 }  // namespace decompositionIgnore

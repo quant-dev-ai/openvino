@@ -10,51 +10,31 @@ using namespace LayerTestsDefinitions;
 using namespace ngraph;
 
 
-namespace {
-
-const std::vector<SplitTestValues> testValues = {
+namespace concatenateConstantsInSubgraph {
+const std::vector<ConcatenateConstantsTestValues> testValues = {
     {
         {1, 3, 16, 16},
         {{1, 3, 1, 1}, {1, 3, 1, 1}},
-        5, 1
     },
-    // TODO: snippets: have to be skipped
-//    {
-//        {1, 3, 16, 16},
-//        {{1, 3, 16, 16}, {1, 3, 16, 16}},
-//        5, 1
-//    },
     {
         {1, 3, 16, 16},
         {{1, 3, 1, 1}, {}},
-        5, 1
     },
     {
         {1, 3, 16, 16},
         {{}, {1, 3, 1, 1}},
-        5, 1
     },
-
-
     {
         {1, 10, 16, 16},
         {{1, 10, 1, 1}, {1, 10, 1, 1}},
-        5, 1
     },
-//    {
-//        {1, 10, 16, 16},
-//        {{1, 10, 16, 16}, {1, 10, 16, 16}},
-//        5, 1
-//    },
     {
         {1, 10, 16, 16},
         {{1, 10, 1, 1}, {}},
-        5, 1
     },
     {
         {1, 10, 16, 16},
         {{}, {1, 10, 1, 1}},
-        5, 1
     }
 };
 
@@ -69,8 +49,36 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::ValuesIn(testValues),
         ::testing::ValuesIn(input_batches),
         ::testing::ValuesIn(input_types),
-        ::testing::Values(std::pair<size_t, size_t>{2, 0}),
+        ::testing::Values(std::pair<size_t, size_t>{5, 1}),
         ::testing::Values(CommonTestUtils::DEVICE_CPU)),
     ConcatenateConstantsTest::getTestCaseName);
+}  // namespace concatenateConstantsInSubgraph
 
-}  // namespace
+
+namespace concatenateConstantsIgnored {
+const std::vector<ConcatenateConstantsTestValues> testValues = {
+    {
+        {1, 3, 16, 16},
+        {{1, 3, 16, 16}, {1, 3, 16, 16}},
+    },
+    {
+        {1, 10, 16, 16},
+        {{1, 10, 16, 16}, {1, 10, 16, 16}},
+    },
+};
+
+std::vector<size_t> input_batches = { 1ul, 2ul };
+
+std::vector<ov::element::Type> input_types = { ov::element::f32 };
+
+INSTANTIATE_TEST_SUITE_P(
+        smoke_Snippets,
+        ConcatenateConstantsTest,
+        ::testing::Combine(
+                ::testing::ValuesIn(testValues),
+                ::testing::ValuesIn(input_batches),
+                ::testing::ValuesIn(input_types),
+                ::testing::Values(std::pair<size_t, size_t>{6, 1}),
+                ::testing::Values(CommonTestUtils::DEVICE_CPU)),
+        ConcatenateConstantsTest::getTestCaseName);
+}  // namespace concatenateConstantsIgnored

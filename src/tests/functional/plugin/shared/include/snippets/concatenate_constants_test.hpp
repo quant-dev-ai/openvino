@@ -14,20 +14,18 @@
 
 namespace LayerTestsDefinitions {
 
-class SplitTestValues {
+class ConcatenateConstantsTestValues {
 public:
     ngraph::Shape inputShape;
     std::vector<ngraph::Shape> constantShapes;
-    int num_nodes;
-    int num_subgraphs;
 };
 
 typedef std::tuple<
-    SplitTestValues,            // test values
-    size_t,                     // branches
-    ov::element::Type,          // input_type,
-    std::pair<size_t, size_t>,  // number of nodes
-    std::string                 // target device
+    ConcatenateConstantsTestValues, // test values
+    size_t,                         // branches
+    ov::element::Type,              // input_type,
+    std::pair<size_t, size_t>,      // number of nodes
+    std::string                     // target device
 > testsParams;
 
 class ConcatenateConstantsTest : public testing::WithParamInterface<testsParams>, virtual public ov::test::SnippetsTestsCommon {
