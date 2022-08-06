@@ -14,6 +14,8 @@
 #include <iterator>
 #include <openvino/runtime/exception.hpp>
 
+#include <ngraph/pass/visualize_tree.hpp>
+
 namespace {
 const std::vector<size_t> get_registers(const std::shared_ptr<ngraph::Node>& node) {
     auto &rt = node->get_rt_info();
@@ -292,151 +294,193 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
     //    }
     //}
 
+    //auto update_concatetion_by_pattern = [](const std::shared_ptr<ov::Model>& f) {
+    //    auto is_concatenation_split = [](const std::shared_ptr<Node>& n) {
+    //        if (is_type<opset1::Split>(n) &&
+    //            is_type<opset1::Parameter>(n->get_input_node_shared_ptr(0)) &&
+    //            is_type<opset1::Constant>(n->get_input_node_shared_ptr(1))) {
+    //            auto get_child = [](const ngraph::Output<Node>& output) -> ngraph::Node* {
+    //                const auto& target_inputs = output.get_target_inputs();
+    //                if (target_inputs.size() > 1ul) {
+    //                    return nullptr;
+    //                }
+    //                return target_inputs.begin()->get_node();
+    //            };
+    //
+    //            for (const auto output : n->outputs()) {
+    //                const auto& load = as_type<snippets::op::Load>(get_child(output));
+    //                if (load == nullptr) {
+    //                    return false;
+    //                }
+    //
+    //                const auto& broadcast_move = as_type<snippets::op::BroadcastMove>(get_child(load->output(0)));
+    //                if (broadcast_move == nullptr) {
+    //                    return false;
+    //                }
+    //            }
+    //            return true;
+    //        }
+    //
+    //        return false;
+    //    };
+    //
+    //
+    //    size_t max_register = -1;
+    //    for (const auto& n : f->get_ordered_ops()) {
+    //        if (is_concatenation_split(n)) {
+    //            if (max_register == -1) {
+    //                max_register = get_max_register(f);
+    //            }
+    //            max_register++;
+    //            fix_concatenation_down(n, max_register);
+    //        }
+    //    }
+    //
+    //    size_t max_constant_register = -1;
+    //    for (const auto& n : f->get_ordered_ops()) {
+    //        const auto input_size = n->get_input_size();
+    //        if (input_size == 1ul) {
+    //            continue;
+    //        }
+    //
+    //        std::unordered_map<size_t, std::shared_ptr<Node>> register_by_parent_node;
+    //        for (auto i = 0; i < input_size; ++i) {
+    //            const auto& source_output = n->input(i).get_source_output();
+    //            const auto index = source_output.get_index();
+    //            const auto& source = source_output.get_node_shared_ptr();
+    //
+    //            auto& rt = source->get_rt_info();
+    //            auto it = rt.find("reginfo");
+    //            if (it == rt.end()) {
+    //                continue;
+    //            }
+    //
+    //            auto source_registers = it->second.as<std::vector<size_t>>();
+    //            auto source_register = source_registers[index];
+    //
+    //            auto existing_it = register_by_parent_node.find(source_register);
+    //            if (existing_it != register_by_parent_node.end()) {
+    //                if (max_constant_register == -1) {
+    //                    // 7ul
+    //                    max_constant_register = get_max_constant_register(f);
+    //                }
+    //                max_constant_register++;
+    //                fix_concatenation(source, max_constant_register);
+    //            }
+    //
+    //            register_by_parent_node.emplace(source_register, source);
+    //        }
+    //    }
+    //};
+    //
+    //update_concatetion_by_pattern(f);
 
 
-
-
-    auto is_concatenation_split = [](const std::shared_ptr<Node>& n) {
-        if (is_type<opset1::Split>(n) &&
-            is_type<opset1::Parameter>(n->get_input_node_shared_ptr(0)) &&
-            is_type<opset1::Constant>(n->get_input_node_shared_ptr(1))) {
-            auto get_child = [](const ngraph::Output<Node>& output) -> ngraph::Node* {
-                const auto& target_inputs = output.get_target_inputs();
-                if (target_inputs.size() > 1ul) {
-                    return nullptr;
-                }
-                return target_inputs.begin()->get_node();
-            };
-
-            for (const auto output : n->outputs()) {
-                const auto& load = as_type<snippets::op::Load>(get_child(output));
-                if (load == nullptr) {
-                    return false;
-                }
-
-                const auto& broadcast_move = as_type<snippets::op::BroadcastMove>(get_child(load->output(0)));
-                if (broadcast_move == nullptr) {
-                    return false;
-                }
+    auto update_concatenation_by_branch = [](const std::shared_ptr<ov::Model>& f) {
+        auto is_concatenation_load_branch = [](const std::shared_ptr<Node> &node) -> bool {
+            if (!ngraph::is_type<snippets::op::BroadcastMove>(node)) {
+                return false;
             }
+
+            const auto load = node->get_input_source_output(0).get_node_shared_ptr();
+            if (!ngraph::is_type<snippets::op::Load>(load)) {
+                return false;
+            }
+
+            const auto split = load->get_input_source_output(0).get_node_shared_ptr();
+            if (!ngraph::is_type<opset1::Split>(split)) {
+                return false;
+            }
+
             return true;
-        }
+        };
 
-        return false;
-    };
-
-
-    size_t max_register = -1;
-    for (const auto& n : f->get_ordered_ops()) {
-        if (is_concatenation_split(n)) {
-            if (max_register == -1) {
-                max_register = get_max_register(f);
-            }
-            max_register++;
-            fix_concatenation_down(n, max_register);
-        }
-    }
-
-    size_t max_constant_register = -1;
-    for (const auto& n : f->get_ordered_ops()) {
-        const auto input_size = n->get_input_size();
-        if (input_size == 1ul) {
-            continue;
-        }
-
-        std::unordered_map<size_t, std::shared_ptr<Node>> register_by_parent_node;
-        for (auto i = 0; i < input_size; ++i) {
-            const auto& source_output = n->input(i).get_source_output();
-            const auto index = source_output.get_index();
-            const auto& source = source_output.get_node_shared_ptr();
-
-            auto& rt = source->get_rt_info();
-            auto it = rt.find("reginfo");
-            if (it == rt.end()) {
+        for (const auto &n : f->get_ordered_ops()) {
+            const auto input_size = n->get_input_size();
+            if (input_size == 1ul) {
                 continue;
             }
 
-            auto source_registers = it->second.as<std::vector<size_t>>();
-            auto source_register = source_registers[index];
+            std::unordered_map<size_t, std::shared_ptr<Node>> register_by_parent_node;
+            std::shared_ptr<Node> prev_source = nullptr;
 
-            auto existing_it = register_by_parent_node.find(source_register);
-            if (existing_it != register_by_parent_node.end()) {
-                if (max_constant_register == -1) {
-                    // 7ul
-                    max_constant_register = get_max_constant_register(f);
+            for (auto i = 0; i < input_size; ++i) {
+                const auto &source_output = n->input(i).get_source_output();
+                const auto &source = source_output.get_node_shared_ptr();
+                if (ngraph::is_type<opset1::Parameter>(source)) {
+                    continue;
                 }
-                max_constant_register++;
-                fix_concatenation(source, max_constant_register);
-            }
 
-            register_by_parent_node.emplace(source_register, source);
+                auto &rt = source->get_rt_info();
+                auto it = rt.find("reginfo");
+                if (it == rt.end()) {
+                    continue;
+                }
+
+                const auto& source_registers = it->second.as<std::vector<size_t>>();
+                auto source_register = source_registers[source_output.get_index()];
+
+                if (prev_source != nullptr) {
+                    auto get_free_register = [](std::unordered_map<size_t, std::shared_ptr<Node>>& register_by_parent_node) -> size_t {
+                        // TODO: snippets: define more appropriate value
+                        const size_t max_register = 7;
+                        for (size_t i = 0ul; i <= max_register; ++i) {
+                            if (register_by_parent_node.find(i) == register_by_parent_node.end()) {
+                                return i;
+                            }
+                        }
+                        throw ov::Exception("all registers are occupied");
+                    };
+
+                    auto fix_concatenation_load_branch = [&](
+                            std::shared_ptr<Node> source,
+                            std::unordered_map<size_t, std::shared_ptr<Node>>& register_by_parent_node) -> size_t {
+                        const auto free_register = get_free_register(register_by_parent_node);
+                        fix_concatenation_up(source, free_register);
+                        return free_register;
+                    };
+
+                    auto fix_branch = [&](
+                            std::shared_ptr<Node> source,
+                            std::unordered_map<size_t, std::shared_ptr<Node>>& register_by_parent_node) -> size_t {
+                        const auto free_register = get_free_register(register_by_parent_node);
+                        fix_concatenation(source, free_register);
+                        return free_register;
+                    };
+
+                    if ((register_by_parent_node.size() == 1ul) && is_concatenation_load_branch(prev_source)) {
+                        // the first parent node was skipped before
+                        const auto prev_source_register = fix_concatenation_load_branch(prev_source, register_by_parent_node);
+                        register_by_parent_node.emplace(prev_source_register, prev_source);
+                    }
+
+                    if (is_concatenation_load_branch(source)) {
+                        source_register = fix_concatenation_load_branch(source, register_by_parent_node);
+                    } else {
+                        if (register_by_parent_node.find(source_register) != register_by_parent_node.end()) {
+                            source_register = fix_branch(source, register_by_parent_node);
+                        }
+                    }
+                }
+
+                register_by_parent_node.emplace(source_register, source);
+                prev_source = source;
+            }
+        }
+    };
+
+    update_concatenation_by_branch(f);
+
+    {
+        auto index = 1ul;
+        for (auto node : f->get_ordered_ops()) {
+            auto &rt_info = node->get_rt_info();
+            rt_info["order"] = index;
+            ++index;
         }
     }
 
-
-
-
-
-    //auto is_concatenation_load = [](const std::shared_ptr<Node>& node) -> bool {
-    //    if (!ngraph::is_type<snippets::op::BroadcastMove>(node)) {
-    //        return false;
-    //    }
-    //
-    //    const auto load = node->get_input_source_output(0).get_node_shared_ptr();
-    //    if (!ngraph::is_type<snippets::op::Load>(load)) {
-    //        return false;
-    //    }
-    //
-    //    const auto split = load->get_input_source_output(0).get_node_shared_ptr();
-    //    if (!ngraph::is_type<opset1::Split>(split)) {
-    //        return false;
-    //    }
-    //
-    //    return true;
-    //};
-    //
-    //for (const auto& n : f->get_ordered_ops()) {
-    //    const auto input_size = n->get_input_size();
-    //    if (input_size == 1ul) {
-    //        continue;
-    //    }
-    //
-    //    std::unordered_map<size_t, std::shared_ptr<Node>> register_by_parent_node;
-    //    for (auto i = 0; i < input_size; ++i) {
-    //        const auto& source_output = n->input(i).get_source_output();
-    //        const auto index = source_output.get_index();
-    //        const auto& source = source_output.get_node_shared_ptr();
-    //        if (ngraph::is_type<opset1::Constant>(source)) {
-    //            continue;
-    //        }
-    //
-    //        auto& rt = source->get_rt_info();
-    //        auto it = rt.find("reginfo");
-    //        if (it == rt.end()) {
-    //            continue;
-    //        }
-    //
-    //        auto source_registers = it->second.as<std::vector<size_t>>();
-    //        auto source_register = source_registers[index];
-    //
-    //        auto existing_it = register_by_parent_node.find(source_register);
-    //        if (existing_it != register_by_parent_node.end()) {
-    //            auto source2 = existing_it->second;
-    //
-    //            if (is_concatenation_load(source)) {
-    //                // TODO: snippets: workaround
-    //                fix_concatenation_down(source, 5ul);
-    //            } else if (is_concatenation_load(source2)) {
-    //                // TODO: snippets: workaround
-    //                fix_concatenation_down(source2, 5ul);
-    //            } else {
-    //                throw ov::Exception("unexpected parents");
-    //            }
-    //        }
-    //
-    //        register_by_parent_node.emplace(source_register, source);
-    //    }
-    //}
+    ov::pass::VisualizeTree("svg/snippets.assign_registers.svg").run_on_model(f);
 
     return false;
 }
