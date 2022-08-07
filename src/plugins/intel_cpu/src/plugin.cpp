@@ -563,6 +563,34 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         });
     fqDecompositionManager.register_pass<ngraph::pass::ConstantFolding>();
     fqDecompositionManager.run_passes(nGraphFunc);
+
+    ov::pass::VisualizeTree("svg/cpu.transformed.svg").run_on_model(nGraphFunc);
+
+    {
+        auto index = 1ul;
+        for (auto node : nGraphFunc->get_ordered_ops()) {
+            auto &rt_info = node->get_rt_info();
+            rt_info["order"] = index;
+            ++index;
+        }
+    }
+
+    for (auto node : nGraphFunc->get_ops()) {
+        auto subgraph = ngraph::as_type_ptr<ngraph::snippets::op::Subgraph>(node);
+        if (subgraph != nullptr) {
+            {
+                auto index = 1ul;
+                for (auto node : subgraph->get_body()->get_ordered_ops()) {
+                    auto &rt_info = node->get_rt_info();
+                    rt_info["order"] = index;
+                    ++index;
+                }
+            }
+
+            ov::pass::VisualizeTree("svg/cpu.transformed.body.svg").run_on_model(subgraph->get_body());
+            break;
+        }
+    }
 }
 
 static void Transformation(CNNNetwork& clonedNetwork, const bool _enableLPT, const bool _enableSnippets, const bool isLegacyApi) {
