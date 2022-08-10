@@ -97,7 +97,7 @@ TEST(ROI_Backprop, TestTwoOutsWithDifferentStartROIs) {
 
     auto result_1 = std::make_shared<ov::opset1::Result>(clamp_1);
     auto result_2 = std::make_shared<ov::opset1::Result>(clamp_2);
-    
+
     auto model = std::make_shared<ov::Model>(ov::ResultVector{result_1, result_2}, ov::ParameterVector{input});
 
     auto map = dump_roi_for_model(model, {{1, 1, 1, 5}, {1, 1, 1, 10}});

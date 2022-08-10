@@ -124,32 +124,32 @@ roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::ve
     return result;
 }
 
- class TransparentROIBackprop : public BaseROIBackprop {
- public:
-     TransparentROIBackprop(std::shared_ptr<ov::Node> node) : BaseROIBackprop(node) {}
+class TransparentROIBackprop : public BaseROIBackprop {
+public:
+    TransparentROIBackprop(std::shared_ptr<ov::Node> node) : BaseROIBackprop(node) {}
 
-     std::vector<ov::PartialShape> infer_roi(const std::vector<ov::PartialShape>& input_shapes,
-                                             const std::vector<ov::PartialShape>& cur_roi) override {
-         auto op = node.get();
-         std::vector<ov::PartialShape> roi_shapes(op->get_input_size());
-         transparent_roi_backprop(op, input_shapes, cur_roi, roi_shapes);
-         return roi_shapes;
-     }
- };
+    std::vector<ov::PartialShape> infer_roi(const std::vector<ov::PartialShape>& input_shapes,
+                                            const std::vector<ov::PartialShape>& cur_roi) override {
+        auto op = node.get();
+        std::vector<ov::PartialShape> roi_shapes(op->get_input_size());
+        transparent_roi_backprop(op, input_shapes, cur_roi, roi_shapes);
+        return roi_shapes;
+    }
+};
 
- template <typename OP>
- class GatherROIBackprop : public BaseROIBackprop {
- public:
-     GatherROIBackprop(std::shared_ptr<OP> node) : BaseROIBackprop(node) {}
+template <typename OP>
+class GatherROIBackprop : public BaseROIBackprop {
+public:
+    GatherROIBackprop(std::shared_ptr<OP> node) : BaseROIBackprop(node) {}
 
-     std::vector<ov::PartialShape> infer_roi(const std::vector<ov::PartialShape>& input_shapes,
-                                             const std::vector<ov::PartialShape>& cur_roi) override {
-         auto op = static_cast<OP*>(node.get());
-         std::vector<ov::PartialShape> roi_shapes(op->get_input_size());
-         roi_backprop(op, input_shapes, roi_shapes);
-         return roi_shapes;
-     }
- };
+    std::vector<ov::PartialShape> infer_roi(const std::vector<ov::PartialShape>& input_shapes,
+                                            const std::vector<ov::PartialShape>& cur_roi) override {
+        auto op = static_cast<OP*>(node.get());
+        std::vector<ov::PartialShape> roi_shapes(op->get_input_size());
+        roi_backprop(op, input_shapes, roi_shapes);
+        return roi_shapes;
+    }
+};
 
 std::shared_ptr<BaseROIBackprop> make_roi_backprop(const std::shared_ptr<ngraph::Node>& op) {
     if (auto gather = ov::as_type_ptr<ov::opset8::Gather>(op)) {
