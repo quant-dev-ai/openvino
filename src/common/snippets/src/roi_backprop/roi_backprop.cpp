@@ -9,7 +9,6 @@
 #include <openvino/opsets/opset8.hpp>
 
 #include "snippets/roi_backprop/gather_roi_backprop.hpp"
-#include "snippets/roi_backprop/max_pool.hpp"
 #include "snippets/roi_backprop/utils.hpp"
 
 namespace ov {
@@ -114,12 +113,6 @@ roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::ve
 
             const auto node_ptr = (*iter).get();
             roi_backprop(node_ptr, in_shapes, cur_roi, new_roi);
-            std::cout <<
-                      "get_roi_from_function = " << node_ptr->get_type_name() << ":" << node_ptr->get_friendly_name() <<
-                      ", in_shapes = " << in_shapes[0] <<
-                      ", cur_roi = " << cur_roi[0] << " (" << cur_roi.size() << ")" <<
-                      ", new_roi = " << new_roi[0] << " (" << new_roi.size() << ")" <<
-                      std::endl;
             if (result.count(node_ptr))
                 OPENVINO_UNREACHABLE("node already exist in roi_map");
             result[node_ptr] = new_roi;
@@ -152,7 +145,7 @@ public:
     std::vector<ov::PartialShape> infer_roi(const std::vector<ov::PartialShape>& input_shapes,
                                             const std::vector<ov::PartialShape>& cur_roi) override {
         auto op = static_cast<OP*>(node.get());
-        std::vector<ov::PartialShape> roi_shapes(op->get_input_size());
+        std::vector<ov::PartialShape> roi_shapes = cur_roi;
         roi_backprop(op, input_shapes, roi_shapes);
         return roi_shapes;
     }
@@ -161,8 +154,6 @@ public:
 std::shared_ptr<BaseROIBackprop> make_roi_backprop(const std::shared_ptr<ngraph::Node>& op) {
     if (auto gather = ov::as_type_ptr<ov::opset8::Gather>(op)) {
         return std::make_shared<GatherROIBackprop<ov::opset8::Gather>>(gather);
-    } else if (auto max_pool = ov::as_type_ptr<ov::opset1::MaxPool>(op)) {
-        return std::make_shared<GatherROIBackprop<ov::opset1::MaxPool>>(max_pool);
     } else {
         return std::make_shared<TransparentROIBackprop>(op);
     }
