@@ -324,5 +324,25 @@ private:
 private:
     bool shouldPostIncrement;
 };
+
+class MaxPoolEmitter : public jit_emitter {
+public:
+    MaxPoolEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa, const std::shared_ptr<ov::Node>& n);
+
+    size_t get_inputs_num() const override {return 1;}
+
+private:
+    void emit_impl(const std::vector<size_t>& in,
+                   const std::vector<size_t>& out,
+                   const std::vector<size_t>& pool,
+                   const std::vector<size_t>& gpr,
+                   const ov::intel_cpu::emitter_context *emit_context) const override;
+
+    template <dnnl::impl::cpu::x64::cpu_isa_t isa>
+    void emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const;
+
+private:
+    bool use_broadcast;
+};
 }   // namespace intel_cpu
 }   // namespace ov

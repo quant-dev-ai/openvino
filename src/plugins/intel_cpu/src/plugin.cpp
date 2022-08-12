@@ -135,6 +135,7 @@
 
 #include <cpu/x64/cpu_isa_traits.hpp>
 #include <itt.h>
+#include "snippets/op/subgraph.hpp"
 
 using namespace InferenceEngine;
 
@@ -439,6 +440,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
 
     manager.run_passes(nGraphFunc);
 
+    ov::pass::VisualizeTree("svg/cpu.common.svg").run_on_model(nGraphFunc);
+
     using namespace ngraph::pass::low_precision;
     if (useLpt) {
         CPU_LPT_SCOPE(LowPrecisionTransformations_Part4);
@@ -553,6 +556,16 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
                     return has_only_const_inputs || bad_input_rank || bad_output_rank;
                 });
         tokenization_manager.run_passes(nGraphFunc);
+    }
+
+    ov::pass::VisualizeTree("svg/cpu.transformed.svg").run_on_model(nGraphFunc);
+
+    for (auto node : nGraphFunc->get_ops()) {
+        auto subgraph = ngraph::as_type_ptr<ngraph::snippets::op::Subgraph>(node);
+        if (subgraph != nullptr) {
+            ov::pass::VisualizeTree("svg/cpu.transformed.body.svg").run_on_model(subgraph->get_body());
+            break;
+        }
     }
 }
 

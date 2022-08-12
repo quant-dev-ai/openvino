@@ -601,5 +601,32 @@ void ScalarLoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vecto
         h->add(in_reg, sizeof(float));
     }
 }
+
+MaxPoolEmitter::MaxPoolEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
+                                     const std::shared_ptr<ov::Node>& n)
+        : jit_emitter(h, isa, n) {
+    in_out_type_ = emitter_in_out_map::gpr_to_vec;
+}
+
+void MaxPoolEmitter::emit_impl(const std::vector<size_t>& in,
+                                  const std::vector<size_t>& out,
+                                  const std::vector<size_t>& pool,
+                                  const std::vector<size_t>& gpr,
+                                  const ov::intel_cpu::emitter_context *emit_context) const {
+    if (host_isa_ == dnnl::impl::cpu::x64::sse41) {
+        emit_isa<dnnl::impl::cpu::x64::sse41>(in, out);
+    } else if (host_isa_ == dnnl::impl::cpu::x64::avx2) {
+        emit_isa<dnnl::impl::cpu::x64::avx2>(in, out);
+    } else if (host_isa_ == dnnl::impl::cpu::x64::avx512_common) {
+        emit_isa<dnnl::impl::cpu::x64::avx512_common>(in, out);
+    } else {
+        IE_THROW() << host_isa_;
+        assert(!"unsupported isa");
+    }
+}
+
+template <dnnl::impl::cpu::x64::cpu_isa_t isa>
+void MaxPoolEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+}
 }   // namespace intel_cpu
 }   // namespace ov
