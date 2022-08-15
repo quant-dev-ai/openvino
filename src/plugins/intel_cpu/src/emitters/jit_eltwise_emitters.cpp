@@ -41,6 +41,8 @@ void jit_add_emitter::emit_impl(const std::vector<size_t> &in_vec_idxs, const st
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void jit_add_emitter::emit_isa(const std::vector<size_t> &in_vec_idxs, const std::vector<size_t> &out_vec_idxs) const {
+    insert_marker(MARKER_ADD);
+
     using Vmm = typename conditional3<isa == cpu::x64::sse41, Xmm, isa == cpu::x64::avx2, Ymm, Zmm>::type;
     Vmm vmm_src0 = Vmm(in_vec_idxs[0]);
     Vmm vmm_src1 = Vmm(in_vec_idxs[1]);
@@ -52,6 +54,8 @@ void jit_add_emitter::emit_isa(const std::vector<size_t> &in_vec_idxs, const std
     } else {
         h->uni_vaddps(vmm_dst, vmm_src0, vmm_src1);
     }
+
+    insert_marker(MARKER_ADD);
 }
 
 /// MUL_ADD ///
@@ -178,6 +182,8 @@ void jit_multiply_emitter::emit_impl(const std::vector<size_t> &in_vec_idxs, con
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void jit_multiply_emitter::emit_isa(const std::vector<size_t> &in_vec_idxs, const std::vector<size_t> &out_vec_idxs) const {
+    insert_marker(MARKER_MULTIPLY);
+
     using Vmm = typename conditional3<isa == cpu::x64::sse41, Xmm, isa == cpu::x64::avx2, Ymm, Zmm>::type;
     Vmm vmm_src0 = Vmm(in_vec_idxs[0]);
     Vmm vmm_src1 = Vmm(in_vec_idxs[1]);
@@ -189,6 +195,8 @@ void jit_multiply_emitter::emit_isa(const std::vector<size_t> &in_vec_idxs, cons
     } else {
         h->uni_vmulps(vmm_dst, vmm_src0, vmm_src1);
     }
+
+    insert_marker(MARKER_MULTIPLY);
 }
 
 

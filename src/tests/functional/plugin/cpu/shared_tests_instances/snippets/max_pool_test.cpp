@@ -10,11 +10,17 @@ using namespace ngraph;
 
 const std::vector<MaxPoolTestValues> testValues = {
     {
-        {1, 3, 16, 16},
-        {{ 1, 1 }, { 1, 1 }, { 0, 0 }, { 2, 2 }},
-        {{ 2, 2 }, { 0, 0 }, { 0, 0 }, { 2, 2 }},
-        {{1, 3, 1, 1}, {1, 3, 1, 1}},
+            {1, 3, 32, 32},
+            {{ 1, 1 }, { 0, 0 }, { 0, 0 }, { 1, 1 }},
+            {{ 2, 2 }, { 0, 0 }, { 0, 0 }, { 2, 2 }},
+            {{1, 3, 1, 1}, {1, 3, 1, 1}},
     },
+    //{
+    //    {1, 3, 64, 64},
+    //    {{ 1, 1 }, { 0, 0 }, { 0, 0 }, { 1, 1 }},
+    //    {{ 2, 2 }, { 0, 0 }, { 0, 0 }, { 2, 2 }},
+    //    {{1, 3, 1, 1}, {1, 3, 1, 1}},
+    //},
     //{
     //    {1, 3, 16},
     //    {{ 1 }, { 1 }, { 0 }, { 2 }},
@@ -23,7 +29,7 @@ const std::vector<MaxPoolTestValues> testValues = {
     //}
 };
 
-std::vector<size_t> input_batches = { 1ul, 2ul };
+std::vector<size_t> input_batches = { 1ul /*, 2ul*/ };
 
 std::vector<ov::element::Type> input_types = { ov::element::f32 };
 
@@ -34,6 +40,6 @@ INSTANTIATE_TEST_SUITE_P(
             ::testing::ValuesIn(testValues),
             ::testing::ValuesIn(input_batches),
             ::testing::ValuesIn(input_types),
-            ::testing::Values(std::pair<size_t, size_t>{5, 1}),
+            ::testing::Values(std::pair<size_t, size_t>{6, 1}),
             ::testing::Values(CommonTestUtils::DEVICE_CPU)),
         MaxPoolTest::getTestCaseName);

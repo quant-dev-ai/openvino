@@ -40,6 +40,8 @@ std::shared_ptr<ov::Model> MaxPoolFunction::get(
             op::RoundingType::FLOOR);
     parent->set_friendly_name("maxPool");
 
+    //std::shared_ptr<Node> parent = prerequisites;
+
     auto generate_values = [](const ngraph::Shape& shape, const float initial_value = 0.f) {
         std::vector<float> multiply_values(shape_size(shape));
         for (auto i = 0; i < multiply_values.size(); ++i) {

@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+#include "jit_snippets_emitters.hpp"
+
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
-
-#include "jit_snippets_emitters.hpp"
+#include <ngraph/opsets/opset1.hpp>
 
 using namespace Xbyak;
 
@@ -257,6 +258,8 @@ void TileSchedulerEmitter::emit_impl(const std::vector<size_t>& in,
                                      const std::vector<size_t>& vec_pool,
                                      const std::vector<size_t>& gpr_pool,
                                      const ov::intel_cpu::emitter_context *emit_context) const {
+    insert_marker(MARKER_TILE_SCHEDULER);
+
     const size_t num_inputs = in[0];
     const size_t num_outputs = in[1];
     const size_t vector_size = in[2];
@@ -289,7 +292,9 @@ void TileSchedulerEmitter::emit_impl(const std::vector<size_t>& in,
             //   To overcome this limitation, we add appropriate negative offsets if necessary.
             for (auto i = 0; i < num_params; i++) {
                 if (jcp.scheduler_offsets[i] != 0) {
-                    h->add(data_ptr_regs[i], jcp.scheduler_offsets[i]);
+                    // TODO: backprop: question: tile offset is here
+                    auto offset = jcp.scheduler_offsets[i];
+                    h->add(data_ptr_regs[i], offset);
                 }
             }
             // Note that outer dimensions are always incremented by 1 (outer tiles are always scalar)
@@ -298,6 +303,8 @@ void TileSchedulerEmitter::emit_impl(const std::vector<size_t>& in,
             h->jge(for_body, CodeGenerator::T_NEAR);
         }
     }
+
+    insert_marker(MARKER_TILE_SCHEDULER);
 }
 
 std::vector<AllocatedEmitter>& TileEmitter::get_nested_code() {
@@ -335,6 +342,8 @@ void TileEmitter::emit_impl(const std::vector<size_t>& in,
                             const std::vector<size_t>& vec_pool,
                             const std::vector<size_t>& gpr_pool,
                             const ov::intel_cpu::emitter_context *emit_context) const {
+    insert_marker(MARKER_TILE);
+
     const size_t inc = in[0];
     Reg64 work_amount = Reg64(static_cast<int>(in[1]));
     Label for_body;
@@ -350,6 +359,8 @@ void TileEmitter::emit_impl(const std::vector<size_t>& in,
         h->cmp(work_amount, inc);
         h->jge(for_body, CodeGenerator::T_NEAR);
     }
+
+    insert_marker(MARKER_TILE);
 }
 
 FakeBroadcastEmitter::FakeBroadcastEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -381,6 +392,8 @@ void FakeBroadcastEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void FakeBroadcastEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_BROADCAST);
+
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Vmm vmm_src0 = Vmm(in[0]);
@@ -391,6 +404,8 @@ void FakeBroadcastEmitter::emit_isa(const std::vector<size_t> &in, const std::ve
     } else {
         h->uni_vmovups(vmm_dst, vmm_src0);
     }
+
+    insert_marker(MARKER_BROADCAST);
 }
 
 ScalarEmitter::ScalarEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -454,12 +469,16 @@ void StoreEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void StoreEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_STORE);
+
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 out_reg(static_cast<int>(out[0]));
     Vmm vmm_src0 = Vmm(in[0]);
     h->uni_vmovups(h->ptr[out_reg], vmm_src0);
     h->add(out_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+
+    insert_marker(MARKER_STORE);
 }
 
 ScalarStoreEmitter::ScalarStoreEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -519,6 +538,8 @@ void LoadEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void LoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_LOAD);
+
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 in_reg(static_cast<int>(in[0]));
@@ -528,6 +549,8 @@ void LoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size
     if (shouldPostIncrement) {
         h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
     }
+
+    insert_marker(MARKER_LOAD);
 }
 
 BroadcastLoadEmitter::BroadcastLoadEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -554,6 +577,8 @@ void BroadcastLoadEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void BroadcastLoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_BROADCAST_LOAD);
+
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 in_reg(in[0]);
@@ -562,6 +587,8 @@ void BroadcastLoadEmitter::emit_isa(const std::vector<size_t> &in, const std::ve
     // In doesn't really matter if we broadcast or `movss` for vector tails so keep only one version for `BroadcastLoad`,
     // key point here is not to add post-increment, it might be fixed by some other approach in future
     h->uni_vbroadcastss(vmm_src0, h->ptr[in_reg]);
+
+    insert_marker(MARKER_BROADCAST_LOAD);
 }
 
 
@@ -602,17 +629,25 @@ void ScalarLoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vecto
     }
 }
 
-MaxPoolEmitter::MaxPoolEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
-                                     const std::shared_ptr<ov::Node>& n)
-        : jit_emitter(h, isa, n) {
+MaxPoolEmitter::MaxPoolEmitter(
+        dnnl::impl::cpu::x64::jit_generator* h,
+        dnnl::impl::cpu::x64::cpu_isa_t isa,
+        const std::shared_ptr<ov::Node>& n) : MemoryEmitter(h, isa, n) {
+    // TODO: backprop: do we need it???
     in_out_type_ = emitter_in_out_map::gpr_to_vec;
+    shouldPostIncrement = true;
+
+    const auto& max_pool = as_type_ptr<ngraph::opset1::MaxPool>(n);
+    kernel = max_pool->get_kernel();
+    // TODO: backprop: static shape is supported only
+    input_shape = max_pool->get_input_shape(0);
 }
 
 void MaxPoolEmitter::emit_impl(const std::vector<size_t>& in,
-                                  const std::vector<size_t>& out,
-                                  const std::vector<size_t>& pool,
-                                  const std::vector<size_t>& gpr,
-                                  const ov::intel_cpu::emitter_context *emit_context) const {
+                            const std::vector<size_t>& out,
+                            const std::vector<size_t>& pool,
+                            const std::vector<size_t>& gpr,
+                            const ov::intel_cpu::emitter_context *emit_context) const {
     if (host_isa_ == dnnl::impl::cpu::x64::sse41) {
         emit_isa<dnnl::impl::cpu::x64::sse41>(in, out);
     } else if (host_isa_ == dnnl::impl::cpu::x64::avx2) {
@@ -627,6 +662,50 @@ void MaxPoolEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void MaxPoolEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_MAX_POOL);
+
+    using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
+            Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
+
+    // TODO: backprop: just to debug
+    Reg64 in_reg(static_cast<int>(in[0]));
+    Vmm vmm_in0 = Vmm(out[0] == 0 ? 1 : 0);
+    Vmm vmm_out0 = Vmm(out[0]);
+
+    // TODO: backprop: build cycle if kernel volume more some value
+    const auto offset = input_shape[3];
+    const auto d_max = kernel.size() >= 3ul ? kernel[2] : 1ul;
+    const auto h2_max = kernel.size() >= 2ul ? kernel[1] : 1ul;
+    const auto w_max = kernel[0];
+    auto offset_to_restore = 0ul;
+    for (auto d = 0ul; d < d_max; ++d) {
+        for (auto h2 = 0ul; h2 < h2_max; ++h2) {
+            for (auto w = 0ul; w < w_max; ++w) {
+                if ((w == 0) && (h2 == 0) && (d == 0)) {
+                    h->uni_vmovups(vmm_out0, h->ptr[in_reg]);
+                    continue;
+                }
+
+                offset_to_restore += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+                h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+                h->uni_vmovups(vmm_in0, h->ptr[in_reg]);
+
+                h->uni_vmaxps(vmm_out0, vmm_out0, vmm_in0);
+            }
+
+            if ((h2 < (h2_max - 1ul)) && (kernel.size() >= 2ul)) {
+                offset_to_restore += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1]);
+                h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1]));
+            }
+        }
+        //if ((d < (d_max - 1ul)) && (kernel.size() >= 3ul)) {
+        //    h->add(in_reg, (dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[2])));
+        //}
+    }
+
+    h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (kernel[1ul] + 1ul) - offset_to_restore);
+    insert_marker(MARKER_MAX_POOL);
 }
+
 }   // namespace intel_cpu
 }   // namespace ov
