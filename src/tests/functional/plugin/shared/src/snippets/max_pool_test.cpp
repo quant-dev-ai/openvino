@@ -26,6 +26,10 @@ std::string MaxPoolTest::getTestCaseName(testing::TestParamInfo<testsParams> obj
     result << "netPRC=" << input_type << "_";
     result << "D=" << targetDevice << "_";
     result << "IN=" << input_type << "_";
+    result << "P_S=" << CommonTestUtils::vec2str(values.params.strides) << "_";
+    result << "P_PB=" << CommonTestUtils::vec2str(values.params.pads_begin) << "_";
+    result << "P_PE=" << CommonTestUtils::vec2str(values.params.pads_end) << "_";
+    result << "P_K=" << CommonTestUtils::vec2str(values.params.kernel) << "_";
     result << "NN1=" << operations_number.first;
     result << "NN2=" << operations_number.second;
     for (auto i = 0; i < values.constantShapes.size(); ++i) {

@@ -288,6 +288,14 @@ static void offset_calculation(std::vector<size_t>& offset, const std::vector<si
     }
 }
 
+static void offset_calculation(std::vector<size_t>& offset, const std::vector<size_t>& dims_in) {
+    size_t k = 1;
+    for (int i = offset.size() - 1; i >= 0; i--) {
+        offset[i] = k;
+        k *= dims_in[i];
+    }
+}
+
 static auto collapseLastDims(std::vector<size_t>& dims, size_t dimsToCollapse) -> void {
     if (dimsToCollapse >= dims.size() - 1)
         IE_THROW() << "Got invalid number of dims to collapse. Expected < " << dims.size() - 1 << " got " << dimsToCollapse;
@@ -344,6 +352,29 @@ void Snippet::define_schedule() {
     const auto config = getSelectedPrimitiveDescriptor()->getConfig();
     const auto dataSize = config.inConfs[0].getMemDesc()->getPrecision().size();
     auto initOffsets = [this, config, dataSize]() {
+        auto body = this->snippet->get_body();
+        // TODO: bakprop: hardcode
+        std::vector<size_t> unit_shape;
+        const auto& results = body->get_results();
+        assert(results.size() == 1ul);
+        unit_shape.resize(results[0]->get_shape().size(), 1ul);
+        std::map<ov::Node*, ov::snippets::ROIBackprop> map = ov::snippets::get_roi_from_function(body, {PartialShape(unit_shape)});
+
+        const auto& params = body->get_parameters();
+        std::vector<ov::snippets::ROIBackprop> param_roi;
+        param_roi.reserve(params.size());
+        for (const auto& param : params) {
+            //std::shared_ptr<ov::Node> node = std::dynamic_pointer_cast<ov::Node>(param);
+            ov::Node* node2 = param.get();
+            auto it = map.find(node2);
+            if (it == map.end()) {
+                // TODO: throw exception
+            }
+
+            auto roi_shape = it->second;
+            param_roi.push_back(roi_shape);
+        }
+
         // find max rank input among all outputs
         const size_t inputNum = getParentEdges().size();
         offsets_in.resize(inputNum);
@@ -370,18 +401,26 @@ void Snippet::define_schedule() {
             // result:
             //    offsets_in: {2048, 2048, 2048, 128, 8, 1}
 
+            // TODO: just to test
+            //const std::vector<std::size_t> roi_shape_shift = { 4, 2 };
+            const auto& roi_shape_shifts = param_roi[i];
+            const auto& roi_shape_shift = roi_shape_shifts.shapes[0].get_shape();
+
             if (i == 0) {
-                offset_calculation(offsets_in[i], exec_domain, exec_domain);
-                offsets_in[0] = {2048, 2048, 2048, 32 * 8 * 2, 0, 1};
+                offset_calculation(offsets_in[i], dims_in[i]);
+
+                offsets_in[0] =  {
+                        offsets_in[0][0] * 1ul, // TODO: backprop: question: what does this dimension mean?
+                        offsets_in[0][1] * roi_shape_shift[0ul],
+                        offsets_in[0][2] * roi_shape_shift[1ul],
+                        offsets_in[0][3] * roi_shape_shift[2ul],
+                        offsets_in[0][4] * roi_shape_shift[3ul],
+                        offsets_in[0][5] * roi_shape_shift[4ul]};
+
             } else {
                 offset_calculation(offsets_in[i], dims_in[i], exec_domain);
             }
 
-            //if (i == 0ul) {
-            //    offset_calculation(offsets_in[i], dims_in[i], {1, 1, 1, 64, 64, 8});
-            //} else {
-            //    offset_calculation(offsets_in[i], dims_in[i], exec_domain);
-            //}
             for (size_t j = 0; j < tensorRank; j++) {
                 offsets_in[i][j] *= dataSize;
             }
@@ -397,13 +436,6 @@ void Snippet::define_schedule() {
             srcMemPtrs[i] = memPtr;
             start_offset_in[i] =  memPtr->GetDescWithType<BlockedMemoryDesc>()->getOffsetPadding() * dataSize;
         }
-
-        auto body = this->snippet->get_body();
-        // TODO: bakprop: hardcode
-        auto map = ov::snippets::get_roi_from_function(body, {{1, 1, 1, 1, 1}});
-
-        //auto parameters = body->get_parameters();
-        //auto it = parameters.begin();
 
         const size_t outputNum = config.outConfs.size();
         offsets_out.resize(outputNum);

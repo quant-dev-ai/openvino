@@ -18,9 +18,13 @@ namespace snippets {
 void roi_backprop(ov::Node* op,
                   const std::vector<ov::PartialShape>& input_shapes,
                   const std::vector<ov::PartialShape>& cur_roi,
-                  std::vector<ov::PartialShape>& new_roi) {
+                  const std::vector<ov::Shape>& cur_strides,
+                  std::vector<ov::PartialShape>& new_roi,
+                  std::vector<ov::Shape>& new_strides) {
     auto infer_roi = make_roi_backprop(op->shared_from_this());
-    new_roi = infer_roi->infer_roi(input_shapes, cur_roi);
+    auto roi = infer_roi->infer_roi(input_shapes, cur_roi, cur_strides);
+    new_roi = roi.shapes;
+    new_strides = roi.strides;
 }
 
 namespace {
@@ -86,7 +90,7 @@ roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::ve
                     }
                 }
 
-                const auto& roi_value = result[node][idx];
+                const auto& roi_value = result[node].shapes[idx];
                 out_roi = intersect_shapes(out_roi, roi_value);
             }
             roi_after.push_back(out_roi);
@@ -105,26 +109,58 @@ roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::ve
         return std::vector<ov::PartialShape>(n->get_input_size());
     };
 
+    auto get_strides_before = [&](const std::shared_ptr<Node>& node) -> std::vector<ov::Shape> {
+        if (is_type<opset1::Result>(node)) {
+            return {};
+        }
+        auto child = node->get_output_target_inputs(0).begin()->get_node();
+        auto it = result.find(child);
+
+        std::vector<ov::Shape> cur_strides;
+        if (it != result.end()) {
+            cur_strides = it->second.strides;
+        }
+
+        if (cur_strides.empty()) {
+            std::vector<ov::PartialShape> input_shapes;
+            for (const auto& input : child->input_values()) {
+                input_shapes.push_back(input.get_partial_shape());
+            }
+
+            cur_strides = { ov::Shape(std::vector<size_t>(input_shapes[0].size(), 1ul)) };
+        }
+        return cur_strides;
+    };
+
     const auto& nodes = m->get_ordered_ops();
     for (auto iter = nodes.rbegin(); iter != nodes.rend(); ++iter) {
         if (!ov::as_type_ptr<ov::opset1::Parameter>(*iter)) {
             const auto cur_roi = get_roi_after(*iter);
             const auto in_shapes = get_input_shapes(*iter);
+
+            // TODO: backprop: workaround
+            auto node = *iter;
+            std::vector<ov::Shape> cur_strides = get_strides_before(node);
+
             auto new_roi = prepare_roi_before(*iter);
 
+            std::vector<ov::Shape> new_strides;
+
             const auto node_ptr = (*iter).get();
-            roi_backprop(node_ptr, in_shapes, cur_roi, new_roi);
+            roi_backprop(node_ptr, in_shapes, cur_roi, cur_strides, new_roi, new_strides);
             std::cout <<
                       "get_roi_from_function = " << node_ptr->get_type_name() << ":" << node_ptr->get_friendly_name() <<
-                      ", in_shapes = " << in_shapes[0] <<
-                      ", cur_roi = " << cur_roi[0] << " (" << cur_roi.size() << ")" <<
-                      ", new_roi = " << new_roi[0] << " (" << new_roi.size() << ")" <<
+                      ", in_shapes = " << (in_shapes.empty() ? PartialShape{} : in_shapes[0]) <<
+                      ", cur_shapes = " << (cur_roi.empty() ? PartialShape{} : cur_roi[0]) << " (" << cur_roi.size() << ")" <<
+                      ", cur_strides = " << (cur_strides.empty() ? Shape{} : cur_strides[0]) << " (" << cur_strides.size() << ")" <<
+                      ", new_shapes = " << (new_roi.empty() ? PartialShape{} : new_roi[0]) << " (" << new_roi.size() << ")" <<
+                      ", new_strides = " << (new_strides.empty() ? Shape{} : new_strides[0]) << " (" << new_strides.size() << ")" <<
                       std::endl;
             if (result.count(node_ptr))
                 OPENVINO_UNREACHABLE("node already exist in roi_map");
-            result[node_ptr] = new_roi;
+            result[node_ptr] = ROIBackprop{new_roi, new_strides};
         } else {
-            result[(*iter).get()] = get_roi_after((*iter));
+            result[(*iter).get()] = ROIBackprop{get_roi_after((*iter)), get_strides_before(*iter)};
         }
     }
 
@@ -135,12 +171,15 @@ class TransparentROIBackprop : public BaseROIBackprop {
 public:
     TransparentROIBackprop(std::shared_ptr<ov::Node> node) : BaseROIBackprop(node) {}
 
-    std::vector<ov::PartialShape> infer_roi(const std::vector<ov::PartialShape>& input_shapes,
-                                            const std::vector<ov::PartialShape>& cur_roi) override {
+    ROIBackprop infer_roi(
+            const std::vector<ov::PartialShape>& input_shapes,
+            const std::vector<ov::PartialShape>& cur_roi,
+            const std::vector<ov::Shape>& cur_strides) override {
         auto op = node.get();
         std::vector<ov::PartialShape> roi_shapes(op->get_input_size());
-        transparent_roi_backprop(op, input_shapes, cur_roi, roi_shapes);
-        return roi_shapes;
+        std::vector<ov::Shape> roi_strides;
+        transparent_roi_backprop(op, input_shapes, cur_roi, cur_strides, roi_shapes, roi_strides);
+        return ROIBackprop{roi_shapes, roi_strides};
     }
 };
 
@@ -149,12 +188,15 @@ class GatherROIBackprop : public BaseROIBackprop {
 public:
     GatherROIBackprop(std::shared_ptr<OP> node) : BaseROIBackprop(node) {}
 
-    std::vector<ov::PartialShape> infer_roi(const std::vector<ov::PartialShape>& input_shapes,
-                                            const std::vector<ov::PartialShape>& cur_roi) override {
+    ROIBackprop infer_roi(
+            const std::vector<ov::PartialShape>& input_shapes,
+            const std::vector<ov::PartialShape>& cur_roi,
+            const std::vector<ov::Shape>& cur_strides) override {
         auto op = static_cast<OP*>(node.get());
         std::vector<ov::PartialShape> roi_shapes = cur_roi;
-        roi_backprop(op, input_shapes, roi_shapes);
-        return roi_shapes;
+        std::vector<ov::Shape> roi_strides = cur_strides;
+        roi_backprop(op, input_shapes, roi_shapes, roi_strides);
+        return ROIBackprop{roi_shapes, roi_strides};
     }
 };
 
