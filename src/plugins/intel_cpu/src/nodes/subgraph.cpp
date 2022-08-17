@@ -358,6 +358,7 @@ void Snippet::define_schedule() {
         const auto& results = body->get_results();
         assert(results.size() == 1ul);
         unit_shape.resize(results[0]->get_shape().size(), 1ul);
+        // TODO: backprop: add strides
         std::map<ov::Node*, ov::snippets::ROIBackprop> map = ov::snippets::get_roi_from_function(body, {PartialShape(unit_shape)});
 
         const auto& params = body->get_parameters();
@@ -403,19 +404,20 @@ void Snippet::define_schedule() {
 
             // TODO: just to test
             //const std::vector<std::size_t> roi_shape_shift = { 4, 2 };
-            const auto& roi_shape_shifts = param_roi[i];
-            const auto& roi_shape_shift = roi_shape_shifts.shapes[0].get_shape();
+            const auto& roi = param_roi[i];
+            //const auto& roi_shape = roi.shapes[0].get_shape();
+            const auto& roi_strides = roi.strides[0];
 
             if (i == 0) {
                 offset_calculation(offsets_in[i], dims_in[i]);
 
                 offsets_in[0] =  {
                         offsets_in[0][0] * 1ul, // TODO: backprop: question: what does this dimension mean?
-                        offsets_in[0][1] * roi_shape_shift[0ul],
-                        offsets_in[0][2] * roi_shape_shift[1ul],
-                        offsets_in[0][3] * roi_shape_shift[2ul],
-                        offsets_in[0][4] * roi_shape_shift[3ul],
-                        offsets_in[0][5] * roi_shape_shift[4ul]};
+                        offsets_in[0][1] * roi_strides[0ul],
+                        offsets_in[0][2] * roi_strides[1ul],
+                        offsets_in[0][3] * roi_strides[2ul],
+                        offsets_in[0][4] * roi_strides[3ul],
+                        offsets_in[0][5] * roi_strides[4ul]};
 
             } else {
                 offset_calculation(offsets_in[i], dims_in[i], exec_domain);
