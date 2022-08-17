@@ -28,6 +28,6 @@ void roi_backprop(const Gather* op, const std::vector<ShapeType>& input_shapes, 
     roi_shapes[2] = input_shapes[2];
 }
 
-}  // namespace v7
+}  // namespace v8
 }  // namespace op
 }  // namespace ov
