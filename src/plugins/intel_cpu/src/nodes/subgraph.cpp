@@ -21,6 +21,8 @@
 #include <ie_ngraph_utils.hpp>
 
 #include <snippets/op/subgraph.hpp>
+#include <snippets/roi_backprop/roi_backprop.hpp>
+
 #include "emitters/cpu_generator.hpp"
 
 using namespace InferenceEngine;
@@ -192,11 +194,52 @@ void Snippet::execute(dnnl::stream strm) {
     for (size_t i = 0; i < dstMemPtrs.size(); i++)
         call_args.dst_ptrs[i] = reinterpret_cast<uint8_t*>(dstMemPtrs[i]->GetData()) + start_offset_out[i];
 
+    // TODO: backprop: debug only
+    auto display = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs) {
+        for (size_t i = 0; i < memPtrs.size(); i++) {
+            float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
+            auto shape = memPtrs[i]->GetShape().getDims();
+            std::cout << std::endl << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
+            //const auto shape_size = i == 1 ? 16ul : ngraph::shape_size(shape);
+
+            //for (auto c = 0; c < shape[1]; c++) {
+            //    std::cout << "channel: " << c << std::endl;
+            //    for (auto h = 0; h < shape[2]; h++) {
+            //        std::cout << h << " :";
+            //        for (auto w = 0; w < shape[3]; w++) {
+            //            std::cout << "   " << value[c * shape[1] * shape[2] + h * shape[2] + w];
+            //        }
+            //        std::cout << std::endl;
+            //    }
+            //}
+
+            const auto volume = shape[1] * shape[2] * shape[3];
+            for (auto c = 0; c < shape[1]; c++) {
+                std::cout << std::endl << "channel: " << c;
+                auto h = 0ul;
+                for (auto w = 0; w < volume; w += 8) {
+                    if (((w / 8) % shape[2]) == 0ul) {
+                        std::cout << std::endl << h << ": ";
+                        h++;
+                    }
+                    std::cout << "\t" << value[w + c];
+                }
+            }
+        }
+        std::cout << std::endl;
+    };
+
+    std::cout << std::endl << "srcMemPtrs.size() = " << srcMemPtrs.size() << std::endl;
+    display(srcMemPtrs);
+
     if (tensorRank == rank6D) {
         schedule_6d(call_args);
     } else {
         schedule_nt(call_args);
     }
+
+    std::cout << std::endl << "dstMemPtrs.size() = " << dstMemPtrs.size() << std::endl;
+    display(dstMemPtrs);
 }
 
 bool Snippet::created() const {
@@ -226,9 +269,29 @@ bool Snippet::canBeInPlace() const {
 }
 
 static void offset_calculation(std::vector<size_t>& offset, const std::vector<size_t>& dims_in, const std::vector<size_t>& dims_out) {
+    // TODO: backprop: question: looks like offsets calculated not correctly for different in/out (exec_domain) dimensions
+    // in:  {1, 1, 1, 64, 64, 8}
+    // out: {1, 1, 1, 32, 32, 8}
+    // offsets: {32768, 32768, 0, 0, 1}
+    // expected: offset doesn't depend on output dims
+    // expected: {32768, 32768, 32768, 512, 8, 1}
+
+    // stride calculation
+    // <= for layout oblivious operation only
+
+
+    // two types offset
     size_t k = 1;
     for (int i = offset.size() - 1; i >= 0; i--) {
         offset[i] = (dims_in[i] == dims_out[i]) ? k : 0;
+        k *= dims_in[i];
+    }
+}
+
+static void offset_calculation(std::vector<size_t>& offset, const std::vector<size_t>& dims_in) {
+    size_t k = 1;
+    for (int i = offset.size() - 1; i >= 0; i--) {
+        offset[i] = k;
         k *= dims_in[i];
     }
 }
@@ -289,16 +352,84 @@ void Snippet::define_schedule() {
     const auto config = getSelectedPrimitiveDescriptor()->getConfig();
     const auto dataSize = config.inConfs[0].getMemDesc()->getPrecision().size();
     auto initOffsets = [this, config, dataSize]() {
+        auto body = this->snippet->get_body();
+        // TODO: bakprop: hardcode
+        std::vector<size_t> unit_shape;
+        const auto& results = body->get_results();
+        assert(results.size() == 1ul);
+        unit_shape.resize(results[0]->get_shape().size(), 1ul);
+        // TODO: backprop: add strides
+        std::map<ov::Node*, ov::snippets::ROIBackprop> map = ov::snippets::get_roi_from_function(body, {PartialShape(unit_shape)});
+
+        const auto& params = body->get_parameters();
+        std::vector<ov::snippets::ROIBackprop> param_roi;
+        param_roi.reserve(params.size());
+        for (const auto& param : params) {
+            //std::shared_ptr<ov::Node> node = std::dynamic_pointer_cast<ov::Node>(param);
+            ov::Node* node2 = param.get();
+            auto it = map.find(node2);
+            if (it == map.end()) {
+                // TODO: throw exception
+            }
+
+            auto roi_shape = it->second;
+            param_roi.push_back(roi_shape);
+        }
+
         // find max rank input among all outputs
         const size_t inputNum = getParentEdges().size();
         offsets_in.resize(inputNum);
+
+        //dims_in[0] = {1, 1, 1, 32, 32, 8};
+
+        // {1, 1, 1, 64, 64, 8}
         for (size_t i = 0; i < inputNum; i++) {
             offsets_in[i].resize(tensorRank, 1);
-            offset_calculation(offsets_in[i], dims_in[i], exec_domain);
+
+            // TODO: backprop: fix here for input & output
+            // input:
+            //    offsets_in: {1, 1, 1, 1, 1, 1}
+            //    dims_in:  {1, 1, 1, 32, 32, 8}
+            //    exec_domain (dims_out): {1, 1, 1, 16, 16, 8}
+            // result:
+            //    offsets_in: {8192, 8192, 8192, 0, 0, 1}
+
+
+            // input:
+            //    offsets_in: {1, 1, 1, 1, 1, 1}
+            //    dims_in:  {1, 1, 1, 16, 16, 8}
+            //    exec_domain (dims_out): {1, 1, 1, 16, 16, 8}
+            // result:
+            //    offsets_in: {2048, 2048, 2048, 128, 8, 1}
+
+            // TODO: just to test
+            //const std::vector<std::size_t> roi_shape_shift = { 4, 2 };
+            const auto& roi = param_roi[i];
+            //const auto& roi_shape = roi.shapes[0].get_shape();
+            const auto& roi_strides = roi.strides[0];
+
+            if (i == 0) {
+                offset_calculation(offsets_in[i], dims_in[i]);
+
+                offsets_in[0] =  {
+                        offsets_in[0][0] * 1ul, // TODO: backprop: question: what does this dimension mean?
+                        offsets_in[0][1] * roi_strides[0ul],
+                        offsets_in[0][2] * roi_strides[1ul],
+                        offsets_in[0][3] * roi_strides[2ul],
+                        offsets_in[0][4] * roi_strides[3ul],
+                        offsets_in[0][5] * roi_strides[4ul]};
+
+            } else {
+                offset_calculation(offsets_in[i], dims_in[i], exec_domain);
+            }
+
             for (size_t j = 0; j < tensorRank; j++) {
                 offsets_in[i][j] *= dataSize;
             }
         }
+
+        // TODO: backprop: question: soffsets hardcoded
+        //offsets_in[0] = { 1, 8, 256 * 4, 8192 * 4, 8192 * 4, 8192 * 4};
 
         start_offset_in.resize(inputNum);
         srcMemPtrs.resize(inputNum);
@@ -381,6 +512,7 @@ void Snippet::define_schedule() {
         sch_dims[maxTileRank-1] = exec_domain.back();
         schedulerWorkAmount = fullWorkAmount / exec_domain.back();
         if (tileRank > 1) {
+            // TODO: backprop: scheduler dimensions 0 index (outer_work_amount) can be not correct
             sch_dims[maxTileRank - tileRank] = exec_domain[tensorRank - 2];
             schedulerWorkAmount /= exec_domain[tensorRank - 2];
             exec_domain[tensorRank - 2] = 1;
@@ -407,6 +539,9 @@ void Snippet::define_schedule() {
         fullWorkAmount *= d;
     }
 
+    // TODO: backprop: question: hardcoded value
+    //fullWorkAmount = fullWorkAmount / 2;
+
     batchDimIdx = tensorRank - exec_domain.size();
     // Note that exec_domain can be modified inside find_dims_to_collapse() and/or initSchedulingInfo()
     find_dims_to_collapse();
@@ -420,6 +555,12 @@ void Snippet::generate() {
     jcp.output_dims = exec_domain;
     std::copy(sch_dims.begin(), sch_dims.end(), jcp.scheduler_dims);
     std::copy(sch_offsets_in.begin(), sch_offsets_in.end(), jcp.scheduler_offsets);
+    // TODO: backprop: debug only
+    std::cout << "jcp.scheduler_offsets:" << std::endl;
+    for (auto i = 0ul; i < SNIPPETS_MAX_SNIPPETS_DIMS; ++i) {
+        std::cout << "\ti: " << jcp.scheduler_offsets[i] << std::endl;
+    }
+
     std::copy(sch_offsets_out.begin(), sch_offsets_out.end(), &jcp.scheduler_offsets[sch_offsets_in.size()]);
     size_t harness_num_dims = jcp.output_dims.size() - 1;
     if (harness_num_dims > SNIPPETS_MAX_HARNESS_DIMS) {
@@ -443,7 +584,11 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
     parallel_for5d(dom[0], dom[1], dom[2], dom[3], dom[4],
         [&](int64_t d0, int64_t d1, int64_t d2, int64_t d3, int64_t d4) {
             int64_t indexes[] = {d0, d1, d2, d3, d4};
-            schedule.get_callable<kernel>()(indexes, &call_args);
+
+            std::cout << "d0 = " << d0 << ", d1 = " << d1 << ", d2 = " << d2 << ", d3 = " << d3 << ", d4 = " << d4 << std::endl;
+
+            auto callable = schedule.get_callable<kernel>();
+            callable(indexes, &call_args);
         });
 }
 
@@ -461,7 +606,8 @@ void Snippet::schedule_nt(const jit_snippets_call_args& call_args) const {
                 tmp /= work_size[j];
             }
 
-            schedule.get_callable<kernel>()(indexes.data(), &call_args);
+            auto callable = schedule.get_callable<kernel>();
+            callable(indexes.data(), &call_args);
         }
     });
 }
