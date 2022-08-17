@@ -32,8 +32,8 @@ ov::snippets::roi_map dump_roi_for_model(const std::shared_ptr<ov::Model>& m, co
 
     for (const auto& elem : map) {
         std::stringstream ss;
-        if (!elem.second.empty()) {
-            for (const auto& roi : elem.second) {
+        if (!elem.second.shapes.empty()) {
+            for (const auto& roi : elem.second.shapes) {
                 ss << roi << ", ";
             }
             elem.first->get_rt_info()["ROI"] = ss.str();
@@ -64,7 +64,7 @@ TEST(ROI_Backprop, TestTwoGathers) {
 
     auto map = dump_roi_for_model(model);
     auto expected_roi = std::vector<ov::PartialShape>{{1, 1, 10, 10}};
-    EXPECT_EQ(map[input.get()], expected_roi);
+    EXPECT_EQ(map[input.get()].shapes, expected_roi);
 }
 
 TEST(ROI_Backprop, DifferentROIForEachInput) {
@@ -84,7 +84,7 @@ TEST(ROI_Backprop, DifferentROIForEachInput) {
 
     auto map = dump_roi_for_model(model);
     auto expected_roi = std::vector<ov::PartialShape>{{1, 3, 10, 10}};
-    EXPECT_EQ(map[input_1.get()], expected_roi);
+    EXPECT_EQ(map[input_1.get()].shapes, expected_roi);
 }
 
 TEST(ROI_Backprop, TestTwoOutsWithDifferentStartROIs) {
@@ -102,5 +102,5 @@ TEST(ROI_Backprop, TestTwoOutsWithDifferentStartROIs) {
 
     auto map = dump_roi_for_model(model, {{1, 1, 1, 5}, {1, 1, 1, 10}});
     auto expected_roi = std::vector<ov::PartialShape>{{1, 1, 1, 10}};
-    EXPECT_EQ(map[input.get()], expected_roi);
+    EXPECT_EQ(map[input.get()].shapes, expected_roi);
 }

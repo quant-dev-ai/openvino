@@ -11,8 +11,14 @@ namespace ov {
 namespace op {
 namespace v8 {
 template <class ShapeType>
-void roi_backprop(const Gather* op, const std::vector<ShapeType>& input_shapes, std::vector<ShapeType>& roi_shapes) {
-   NODE_VALIDATION_CHECK(op, input_shapes.size() == 3 && roi_shapes.size() == 3);
+void roi_backprop(
+        const Gather* op,
+        const std::vector<ShapeType>& input_shapes,
+        std::vector<ShapeType>& roi_shapes,
+        std::vector<ov::Shape>& strides) {
+   NODE_VALIDATION_CHECK(op, input_shapes.size() == 3);
+
+    roi_shapes.resize(3ul);
 
     auto& roi_data = roi_shapes[0];
     auto& data_shape = input_shapes[0];

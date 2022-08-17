@@ -11,19 +11,29 @@
 namespace ov {
 namespace snippets {
 
+class ROIBackprop {
+public:
+    std::vector<ov::PartialShape> shapes;
+    std::vector<ov::Shape> strides;
+};
+
 void roi_backprop(ov::Node* op,
                   const std::vector<ov::PartialShape>& input_shapes,
                   const std::vector<ov::PartialShape>& cur_roi,
-                  std::vector<ov::PartialShape>& new_roi);
+                  const std::vector<ov::Shape>& cur_roi_strides,
+                  std::vector<ov::PartialShape>& new_roi,
+                  std::vector<ov::Shape>& new_roi_strides);
 
-using roi_map = std::map<ov::Node*, std::vector<ov::PartialShape>>;
+using roi_map = std::map<ov::Node*, ROIBackprop>;
 roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::vector<ov::PartialShape>& start_roi);
 
 class BaseROIBackprop {
 public:
     BaseROIBackprop(std::shared_ptr<ov::Node> node) : node(node) {}
-    virtual std::vector<ov::PartialShape> infer_roi(const std::vector<ov::PartialShape>& input_shapes,
-                                                    const std::vector<ov::PartialShape>& cur_roi) = 0;
+    virtual ROIBackprop infer_roi(
+            const std::vector<ov::PartialShape>& input_shapes,
+            const std::vector<ov::PartialShape>& cur_roi,
+            const std::vector<ov::Shape>& cur_strides) = 0;
 
 protected:
     std::shared_ptr<ov::Node> node;
