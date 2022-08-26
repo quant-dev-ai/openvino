@@ -23,6 +23,7 @@ ngraph::snippets::pass::InsertLoad::InsertLoad() {
             const auto& inputs = root->get_output_target_inputs(0);
             if (inputs.size() == 1ul) {
                 const auto& input_node = inputs.begin()->get_node();
+                // TODO: workaround
                 if (is_type<opset1::MaxPool>(input_node)) {
                     return false;
                 }

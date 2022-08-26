@@ -9,6 +9,7 @@
 #include <openvino/opsets/opset8.hpp>
 
 #include "snippets/roi_backprop/gather_roi_backprop.hpp"
+#include "snippets/roi_backprop/convolution.hpp"
 #include "snippets/roi_backprop/max_pool.hpp"
 #include "snippets/roi_backprop/utils.hpp"
 
@@ -90,8 +91,12 @@ roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::ve
                     }
                 }
 
-                const auto& roi_value = result[node].shapes[idx];
-                out_roi = intersect_shapes(out_roi, roi_value);
+                // TODO: backprop: should be fixed: Node has two inputs but one output
+                auto& roi = result[node];
+                if (roi.shapes.size() >= (idx + 1ul)) {
+                    const auto& roi_value = result[node].shapes[idx];
+                    out_roi = intersect_shapes(out_roi, roi_value);
+                }
             }
             roi_after.push_back(out_roi);
         }
@@ -148,6 +153,7 @@ roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::ve
 
             const auto node_ptr = (*iter).get();
             roi_backprop(node_ptr, in_shapes, cur_roi, cur_strides, new_roi, new_strides);
+#ifdef CPU_DEBUG_CAPS
             std::cout <<
                       "get_roi_from_function = " << node_ptr->get_type_name() << ":" << node_ptr->get_friendly_name() <<
                       ", in_shapes = " << (in_shapes.empty() ? PartialShape{} : in_shapes[0]) <<
@@ -156,6 +162,7 @@ roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::ve
                       ", new_shapes = " << (new_roi.empty() ? PartialShape{} : new_roi[0]) << " (" << new_roi.size() << ")" <<
                       ", new_strides = " << (new_strides.empty() ? Shape{} : new_strides[0]) << " (" << new_strides.size() << ")" <<
                       std::endl;
+#endif
             if (result.count(node_ptr))
                 OPENVINO_UNREACHABLE("node already exist in roi_map");
             result[node_ptr] = ROIBackprop{new_roi, new_strides};
@@ -205,6 +212,8 @@ std::shared_ptr<BaseROIBackprop> make_roi_backprop(const std::shared_ptr<ngraph:
         return std::make_shared<GatherROIBackprop<ov::opset8::Gather>>(gather);
     } else if (auto max_pool = ov::as_type_ptr<ov::opset1::MaxPool>(op)) {
         return std::make_shared<GatherROIBackprop<ov::opset1::MaxPool>>(max_pool);
+    } else if (auto convolution = ov::as_type_ptr<ov::opset1::Convolution>(op)) {
+        return std::make_shared<GatherROIBackprop<ov::opset1::Convolution>>(convolution);
     } else {
         return std::make_shared<TransparentROIBackprop>(op);
     }

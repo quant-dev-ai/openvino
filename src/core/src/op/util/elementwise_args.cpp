@@ -20,6 +20,7 @@ std::tuple<ov::element::Type, ov::PartialShape> ov::op::util::validate_and_infer
                                   "Argument element types are inconsistent.");
 
             if (autob.m_type == op::AutoBroadcastType::NONE) {
+                auto shape_i = node->get_input_partial_shape(i);
                 NODE_VALIDATION_CHECK(node,
                                       PartialShape::merge_into(pshape, node->get_input_partial_shape(i)),
                                       "Argument shapes are inconsistent.");

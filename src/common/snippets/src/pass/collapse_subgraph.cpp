@@ -106,7 +106,8 @@ auto is_layout_oblivious(const std::shared_ptr<const Node> &n) -> bool {
 }
 
 auto is_layout_dependent(const std::shared_ptr<const Node> &n) -> bool {
-    return ov::is_type<opset1::MaxPool>(n);
+    return ov::is_type<opset1::MaxPool>(n) || ov::is_type<opset1::Convolution>(n);
+    //return ov::is_type<opset1::MaxPool>(n);
 }
 auto has_supported_in_out(const std::shared_ptr<const Node> &n) -> bool {
     auto supported = [](descriptor::Tensor& t) -> bool {
@@ -174,6 +175,7 @@ auto update_out_tensor_name(std::shared_ptr<ngraph::snippets::op::Subgraph> &sub
 } // namespace
 
 bool AppropriateForSubgraph(const std::shared_ptr<const Node> &node) {
+    std::cout << "AppropriateForSubgraph: " << node->get_type_name() << std::endl;
     return (is_layout_oblivious(node) || is_layout_dependent(node)) && has_supported_in_out(node);
 }
 

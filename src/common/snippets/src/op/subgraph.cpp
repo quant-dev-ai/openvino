@@ -13,6 +13,8 @@
 #include "snippets/pass/convert_constants_to_scalars.hpp"
 #include "snippets/pass/convert_power_to_powerstatic.hpp"
 #include "snippets/pass/vector_to_scalar.hpp"
+#include "snippets/pass/convolution_decomposition.hpp"
+#include "snippets/pass/markup.hpp"
 
 #include <ngraph/pass/manager.hpp>
 #include <openvino/pass/serialize.hpp>
@@ -176,9 +178,10 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
                                   "Snippets canonicalization got input shapes of equal ranks but different layouts, which is not supported");
         }
         ov::PartialShape tmpPShape(baseShape);
-        NODE_VALIDATION_CHECK(this,
-                              PartialShape::broadcast_merge_into(tmpPShape, inShape, ::ngraph::op::AutoBroadcastType::NUMPY),
-                              "Failed to create broadcastable shapes in snippets canonicalization");
+        // TODO: for debug: Convolution
+        //NODE_VALIDATION_CHECK(this,
+        //                      PartialShape::broadcast_merge_into(tmpPShape, inShape, ::ngraph::op::AutoBroadcastType::NUMPY),
+        //                      "Failed to create broadcastable shapes in snippets canonicalization");
         const auto paramShape = m_body->get_parameters()[i]->get_shape();
         if (paramShape.size() != inShape.size() || !equal(paramShape.begin(), paramShape.end(), inShape.begin()))
                 m_body->replace_parameter(i, std::make_shared<opset1::Parameter>(inType, inShape));
@@ -222,6 +225,9 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
                                                                ::ngraph::op::AutoBroadcastType::NUMPY);
         NODE_VALIDATION_CHECK(this, compatibleWithOtherOutputs, "Snippets output shapes must be numpy broadcastable");
     }
+
+    ngraph::pass::VisualizeTree("svg/snippets.canonicalize.4.svg").run_on_model(m_body);
+
     exec_domain = outPShape.get_shape();
     return exec_domain;
 }
@@ -268,6 +274,16 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     manager.run_passes(m_body);
 
     ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.2.svg").run_on_model(m_body);
+
+    {
+        // TODO: use the the same manager
+        ngraph::pass::Manager manager;
+        manager.register_pass<snippets::pass::Markup>();
+        manager.register_pass<snippets::pass::ConvolutionDecomposition>();
+        manager.run_passes(m_body);
+    }
+
+    ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.3.svg").run_on_model(m_body);
 }
 
 snippets::Schedule snippets::op::Subgraph::generate(const BlockedShapeVector& output_shapes,

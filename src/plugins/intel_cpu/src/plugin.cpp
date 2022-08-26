@@ -82,6 +82,7 @@
 #include <transformations/op_conversions/fq_decomposition.hpp>
 #include <transformations/utils/utils.hpp>
 #include <snippets/pass/collapse_subgraph.hpp>
+#include <snippets/pass/common_optimizations.hpp>
 #include "ngraph_transformations/snippets_mark_skipped.hpp"
 #include <transformations/op_conversions/convert_roi_align_v9_to_v3.hpp>
 #include <transformations/op_conversions/convert_roi_align_v3_to_v9.hpp>
@@ -180,6 +181,10 @@ Engine::~Engine() {
 
 static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function> nGraphFunc, const bool _enableLPT,
                                                const bool _enableSnippets, const bool isLegacyApi) {
+#ifdef CPU_DEBUG_CAPS
+    //ov::pass::Serialize("svg/cpu.original.xml", "svg/cpu.original.bin").run_on_model(nGraphFunc);
+#endif
+
     ngraph::pass::Manager manager;
     manager.set_per_pass_validation(false);
     manager.register_pass<ngraph::pass::InitNodeInfo>();
@@ -440,7 +445,9 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
 
     manager.run_passes(nGraphFunc);
 
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/cpu.common.svg").run_on_model(nGraphFunc);
+#endif
 
     using namespace ngraph::pass::low_precision;
     if (useLpt) {
@@ -556,8 +563,14 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
                     return has_only_const_inputs || bad_input_rank || bad_output_rank;
                 });
         tokenization_manager.run_passes(nGraphFunc);
+
+        // TODO: just to debug: use tokenization_manager
+        //ngraph::pass::Manager common_manager;
+        //common_manager.register_pass<ngraph::snippets::pass::CommonOptimizations>();
+        //common_manager.run_passes(nGraphFunc);
     }
 
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/cpu.transformed.svg").run_on_model(nGraphFunc);
 
     for (auto node : nGraphFunc->get_ops()) {
@@ -567,6 +580,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
             break;
         }
     }
+
+#endif
 }
 
 static void Transformation(CNNNetwork& clonedNetwork, const bool _enableLPT, const bool _enableSnippets, const bool isLegacyApi) {
