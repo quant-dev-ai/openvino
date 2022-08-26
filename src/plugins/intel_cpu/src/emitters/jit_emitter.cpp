@@ -23,8 +23,10 @@ size_t jit_emitter::get_vec_length() const {
 }
 
 void jit_emitter::insert_marker(const size_t marker) const {
+#ifdef CPU_DEBUG_CAPS
     Ymm vmm_divider = Ymm(marker);
     h->uni_vmovups(vmm_divider, vmm_divider);
+#endif
 }
 
 void jit_emitter::push_vec(const Xbyak::Address &addr, size_t vec_idx) const {

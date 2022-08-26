@@ -148,6 +148,7 @@ roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::ve
 
             const auto node_ptr = (*iter).get();
             roi_backprop(node_ptr, in_shapes, cur_roi, cur_strides, new_roi, new_strides);
+#ifdef CPU_DEBUG_CAPS
             std::cout <<
                       "get_roi_from_function = " << node_ptr->get_type_name() << ":" << node_ptr->get_friendly_name() <<
                       ", in_shapes = " << (in_shapes.empty() ? PartialShape{} : in_shapes[0]) <<
@@ -156,6 +157,7 @@ roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::ve
                       ", new_shapes = " << (new_roi.empty() ? PartialShape{} : new_roi[0]) << " (" << new_roi.size() << ")" <<
                       ", new_strides = " << (new_strides.empty() ? Shape{} : new_strides[0]) << " (" << new_strides.size() << ")" <<
                       std::endl;
+#endif
             if (result.count(node_ptr))
                 OPENVINO_UNREACHABLE("node already exist in roi_map");
             result[node_ptr] = ROIBackprop{new_roi, new_strides};
