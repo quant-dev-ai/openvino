@@ -678,34 +678,47 @@ void MaxPoolEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<s
     const auto h_dim_max = kernel.size() >= 2ul ? kernel[kernel.size() - 2ul] : 1ul;
     const auto w_dim_max = kernel[kernel.size() - 1ul];
     auto offset_to_restore = 0ul;
+    auto current_offset = 0ul;
+
+    std::cout << "d_dim_max=" << d_dim_max << ", h_dim_max=" << h_dim_max << ", w_dim_max=" << w_dim_max << std::endl;
+
     for (auto d_dim = 0ul; d_dim < d_dim_max; ++d_dim) {
         for (auto h_dim = 0ul; h_dim < h_dim_max; ++h_dim) {
             for (auto w_dim = 0ul; w_dim < w_dim_max; ++w_dim) {
-                if ((w_dim == 0) && (h_dim == 0) && (d_dim == 0)) {
+                if ((w_dim == 0ul) && (h_dim == 0ul) && (d_dim == 0ul)) {
                     h->uni_vmovups(vmm_out0, h->ptr[in_reg]);
                     continue;
                 }
 
-                offset_to_restore += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
-                h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
-                h->uni_vmovups(vmm_in0, h->ptr[in_reg]);
+
+                if (w_dim != 0ul) {
+                    // the same line
+                    offset_to_restore += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+                    //h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+                    current_offset += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+                } else {
+                    // new line
+                    offset_to_restore += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1] + 1ul);
+                    //h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1] + 1ul));
+                    current_offset += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1] + 1ul);
+                }
+                h->uni_vmovups(vmm_in0, h->ptr[in_reg + current_offset]);
 
                 h->uni_vmaxps(vmm_out0, vmm_out0, vmm_in0);
             }
 
-            if ((h_dim < (h_dim_max - 1ul)) && (kernel.size() >= 2ul)) {
-                offset_to_restore += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1]);
-                h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1]));
-            }
+            //if ((h_dim < (h_dim_max - 1ul)) && (kernel.size() >= 2ul)) {
+            //    offset_to_restore += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1]);
+            //    h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1]));
+            //}
         }
         //if ((d < (d_max - 1ul)) && (kernel.size() >= 3ul)) {
         //    h->add(in_reg, (dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[0])));
         //}
     }
 
-    //h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (kernel[1ul] + 1ul) - offset_to_restore);
-    //h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (kernel[1ul]) - offset_to_restore);
-    h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen - offset_to_restore);
+    //h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen - offset_to_restore);
+    h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
     insert_marker(MARKER_MAX_POOL);
 }
 
