@@ -194,43 +194,35 @@ void Snippet::execute(dnnl::stream strm) {
     for (size_t i = 0; i < dstMemPtrs.size(); i++)
         call_args.dst_ptrs[i] = reinterpret_cast<uint8_t*>(dstMemPtrs[i]->GetData()) + start_offset_out[i];
 
+#ifdef CPU_DEBUG_CAPS
     // TODO: backprop: debug only
     auto display = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs) {
         for (size_t i = 0; i < memPtrs.size(); i++) {
             float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
             auto shape = memPtrs[i]->GetShape().getDims();
             std::cout << std::endl << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
-            //const auto shape_size = i == 1 ? 16ul : ngraph::shape_size(shape);
 
-            //for (auto c = 0; c < shape[1]; c++) {
-            //    std::cout << "channel: " << c << std::endl;
-            //    for (auto h = 0; h < shape[2]; h++) {
-            //        std::cout << h << " :";
-            //        for (auto w = 0; w < shape[3]; w++) {
-            //            std::cout << "   " << value[c * shape[1] * shape[2] + h * shape[2] + w];
-            //        }
-            //        std::cout << std::endl;
-            //    }
-            //}
-
-            const auto volume = shape[1] * shape[2] * shape[3];
-            for (auto c = 0; c < shape[1]; c++) {
+            const auto spacial_volume = shape[2] * shape[3];
+            for (auto c = 0; c < shape[1]; ++c) {
                 std::cout << std::endl << "channel: " << c;
                 auto h = 0ul;
-                for (auto w = 0; w < volume; w += 8) {
-                    if (((w / 8) % shape[2]) == 0ul) {
+                for (auto w = 0; w < spacial_volume; ++w) {
+                    if ((w % shape[2]) == 0ul) {
                         std::cout << std::endl << h << ": ";
                         h++;
                     }
-                    std::cout << "\t" << value[w + c];
+                    std::cout << "\t" << value[w * 8 + c];
                 }
             }
         }
         std::cout << std::endl;
     };
+#endif
 
+#ifdef CPU_DEBUG_CAPS
     std::cout << std::endl << "srcMemPtrs.size() = " << srcMemPtrs.size() << std::endl;
     display(srcMemPtrs);
+#endif
 
     if (tensorRank == rank6D) {
         schedule_6d(call_args);
@@ -238,8 +230,10 @@ void Snippet::execute(dnnl::stream strm) {
         schedule_nt(call_args);
     }
 
+#ifdef CPU_DEBUG_CAPS
     std::cout << std::endl << "dstMemPtrs.size() = " << dstMemPtrs.size() << std::endl;
     display(dstMemPtrs);
+#endif
 }
 
 bool Snippet::created() const {
@@ -555,11 +549,14 @@ void Snippet::generate() {
     jcp.output_dims = exec_domain;
     std::copy(sch_dims.begin(), sch_dims.end(), jcp.scheduler_dims);
     std::copy(sch_offsets_in.begin(), sch_offsets_in.end(), jcp.scheduler_offsets);
+
+#ifdef CPU_DEBUG_CAPS
     // TODO: backprop: debug only
     std::cout << "jcp.scheduler_offsets:" << std::endl;
     for (auto i = 0ul; i < SNIPPETS_MAX_SNIPPETS_DIMS; ++i) {
         std::cout << "\ti: " << jcp.scheduler_offsets[i] << std::endl;
     }
+#endif
 
     std::copy(sch_offsets_out.begin(), sch_offsets_out.end(), &jcp.scheduler_offsets[sch_offsets_in.size()]);
     size_t harness_num_dims = jcp.output_dims.size() - 1;
@@ -585,7 +582,9 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
         [&](int64_t d0, int64_t d1, int64_t d2, int64_t d3, int64_t d4) {
             int64_t indexes[] = {d0, d1, d2, d3, d4};
 
+#ifdef CPU_DEBUG_CAPS
             std::cout << "d0 = " << d0 << ", d1 = " << d1 << ", d2 = " << d2 << ", d3 = " << d3 << ", d4 = " << d4 << std::endl;
+#endif
 
             auto callable = schedule.get_callable<kernel>();
             callable(indexes, &call_args);
