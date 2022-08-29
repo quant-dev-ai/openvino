@@ -60,6 +60,11 @@
 #include "memory_desc/cpu_memory_desc_utils.h"
 #include "memory_desc/dnnl_blocked_memory_desc.h"
 
+#ifdef CPU_DEBUG_CAPS
+#include <iomanip>
+#include <iostream>
+#endif
+
 using namespace dnnl;
 using namespace openvino;
 using namespace ov::intel_cpu::node;
@@ -525,14 +530,14 @@ void Node::execute(dnnl::stream strm) {
                         std::cout << std::endl << h << ": ";
                         h++;
                     }
-                    std::cout << "\t" << value[w * 8 + c];
+                    std::cout << "\t" << std::setfill('0') << std::setw(3) << value[w * 8 + c];
                 }
             }
             std::cout << std::endl;
         };
 
         std::cout << "Node type: " << getTypeStr() << std::endl;
-        if (getTypeStr() == "MaxPool") {
+        if ((getTypeStr() == "MaxPool") || (getTypeStr() == "Convolution")) {
             auto memory = getParentEdgesAtPort(0)[0]->getMemoryPtr();
             std::cout << std::endl << "srcMemPtrs.size() = " << 1 << std::endl;
             display(memory);
@@ -542,7 +547,7 @@ void Node::execute(dnnl::stream strm) {
         (*prim).execute(strm, primArgs);
 
 #ifdef CPU_DEBUG_CAPS
-        if (getTypeStr() == "MaxPool") {
+        if ((getTypeStr() == "MaxPool") || (getTypeStr() == "Convolution")) {
             auto memory = getParentEdgesAtPort(0)[0]->getMemoryPtr();
             std::cout << std::endl << "dstMemPtrs.size() = " << 1 << std::endl;
             display(memory);

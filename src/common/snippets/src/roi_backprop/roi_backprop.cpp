@@ -9,6 +9,7 @@
 #include <openvino/opsets/opset8.hpp>
 
 #include "snippets/roi_backprop/gather_roi_backprop.hpp"
+#include "snippets/roi_backprop/convolution.hpp"
 #include "snippets/roi_backprop/max_pool.hpp"
 #include "snippets/roi_backprop/utils.hpp"
 
@@ -207,6 +208,8 @@ std::shared_ptr<BaseROIBackprop> make_roi_backprop(const std::shared_ptr<ngraph:
         return std::make_shared<GatherROIBackprop<ov::opset8::Gather>>(gather);
     } else if (auto max_pool = ov::as_type_ptr<ov::opset1::MaxPool>(op)) {
         return std::make_shared<GatherROIBackprop<ov::opset1::MaxPool>>(max_pool);
+    } else if (auto convolution = ov::as_type_ptr<ov::opset1::Convolution>(op)) {
+        return std::make_shared<GatherROIBackprop<ov::opset1::Convolution>>(convolution);
     } else {
         return std::make_shared<TransparentROIBackprop>(op);
     }

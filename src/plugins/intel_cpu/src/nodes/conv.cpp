@@ -24,6 +24,11 @@
 #include "utils/cpu_utils.hpp"
 #include <common/primitive_hashing_utils.hpp>
 
+#ifdef CPU_DEBUG_CAPS
+#include <iomanip>
+#include <iostream>
+#endif
+
 using namespace dnnl;
 using namespace InferenceEngine;
 
@@ -1295,7 +1300,46 @@ void Convolution::execute(dnnl::stream strm) {
     if (!execPtr) {
         IE_THROW() << "Can't execute Convolution node with name: " << getName() << ", because executor is not compiled";
     }
+
+#ifdef CPU_DEBUG_CAPS
+    // TODO: backprop: debug only
+    auto display = [](ov::intel_cpu::MemoryPtr& memPtr) {
+        float* value = reinterpret_cast<float*>(memPtr->GetData());
+        auto shape = memPtr->GetShape().getDims();
+        std::cout << std::endl << "memPtrs[i]: i=" << 0 << ", shape=" << shape << std::endl;
+
+        const auto spacial_volume = shape[2] * shape[3];
+        for (auto c = 0; c < shape[1]; c++) {
+            std::cout << std::endl << "channel: " << c;
+            auto h = 0ul;
+            for (auto w = c * spacial_volume; w < (c + 1ul) * spacial_volume; ++w) {
+                if ((w % shape[2]) == 0ul) {
+                    std::cout << std::endl << h << ": ";
+                    h++;
+                }
+                std::cout << "\t" << std::setfill('0') << std::setw(3) << value[w];
+            }
+        }
+        std::cout << std::endl;
+    };
+
+    std::cout << "Node type: " << getTypeStr() << std::endl;
+    {
+        auto memory = getParentEdgesAtPort(0)[0]->getMemoryPtr();
+        std::cout << std::endl << "srcMemPtrs.size() = " << 1 << std::endl;
+        display(memory);
+    }
+#endif
+
     execPtr->exec(primArgs, strm);
+
+#ifdef CPU_DEBUG_CAPS
+    {
+        auto memory = getParentEdgesAtPort(0)[0]->getMemoryPtr();
+        std::cout << std::endl << "dstMemPtrs.size() = " << 1 << std::endl;
+        display(memory);
+    }
+#endif
 }
 
 void Convolution::executeDynamicImpl(dnnl::stream strm) {

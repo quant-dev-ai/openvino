@@ -440,7 +440,9 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
 
     manager.run_passes(nGraphFunc);
 
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/cpu.common.svg").run_on_model(nGraphFunc);
+#endif
 
     using namespace ngraph::pass::low_precision;
     if (useLpt) {
@@ -558,6 +560,7 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         tokenization_manager.run_passes(nGraphFunc);
     }
 
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/cpu.transformed.svg").run_on_model(nGraphFunc);
 
     for (auto node : nGraphFunc->get_ops()) {
@@ -567,6 +570,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
             break;
         }
     }
+
+#endif
 }
 
 static void Transformation(CNNNetwork& clonedNetwork, const bool _enableLPT, const bool _enableSnippets, const bool isLegacyApi) {
