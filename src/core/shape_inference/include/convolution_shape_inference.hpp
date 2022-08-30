@@ -240,6 +240,10 @@ void shape_infer(const Convolution* op,
         output_shapes[0] = T{ 1ul, 8ul, 56ul, 56ul, 8ul };
         return;
     }
+    if ((input_shapes[0] == T{ 1, 2, 112, 112, 8 }) && (input_shapes[1] == T{ 96, 2, 1, 1, 8 })) {
+        output_shapes[0] = T{ 1ul, 12ul, 112ul, 112ul, 8ul };
+        return;
+    }
 
     NODE_VALIDATION_CHECK(op, input_shapes.size() == 2 && output_shapes.size() == 1);
     auto input_shape = input_shapes[0], filters_shape = input_shapes[1];

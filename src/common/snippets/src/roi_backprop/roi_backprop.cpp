@@ -91,8 +91,12 @@ roi_map get_roi_from_function(const std::shared_ptr<ov::Model>& m, const std::ve
                     }
                 }
 
-                const auto& roi_value = result[node].shapes[idx];
-                out_roi = intersect_shapes(out_roi, roi_value);
+                // TODO: backprop: should be fixed: Node has two inputs but one output
+                auto& roi = result[node];
+                if (roi.shapes.size() >= (idx + 1ul)) {
+                    const auto& roi_value = result[node].shapes[idx];
+                    out_roi = intersect_shapes(out_roi, roi_value);
+                }
             }
             roi_after.push_back(out_roi);
         }
