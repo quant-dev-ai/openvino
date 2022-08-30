@@ -17,24 +17,21 @@ std::string ConvolutionTest::getTestCaseName(testing::TestParamInfo<testsParams>
     std::ostringstream result;
     auto values = std::get<0>(obj.param);
     const size_t input_branch = std::get<1>(obj.param);
-    values.inputShape[0] = input_branch;
+    values.input_shape[0] = input_branch;
     const auto input_type = std::get<2>(obj.param);
     const auto operations_number = std::get<3>(obj.param);
     const auto targetDevice = std::get<4>(obj.param);
 
-    result << "IS=" << CommonTestUtils::vec2str(values.inputShape) << "_";
+    result << "IS=" << CommonTestUtils::vec2str(values.input_shape) << "_";
     result << "netPRC=" << input_type << "_";
     result << "D=" << targetDevice << "_";
     result << "IN=" << input_type << "_";
-    result << "P_S=" << CommonTestUtils::vec2str(values.params.strides) << "_";
-    result << "P_PB=" << CommonTestUtils::vec2str(values.params.pads_begin) << "_";
-    result << "P_PE=" << CommonTestUtils::vec2str(values.params.pads_end) << "_";
-    result << "P_K=" << CommonTestUtils::vec2str(values.params.kernel) << "_";
+    result << "P_S=" << CommonTestUtils::vec2str(values.convolution_params.strides) << "_";
+    result << "P_PB=" << CommonTestUtils::vec2str(values.convolution_params.pads_begin) << "_";
+    result << "P_PE=" << CommonTestUtils::vec2str(values.convolution_params.pads_end) << "_";
+    result << "P_K=" << CommonTestUtils::vec2str(values.convolution_params.dilations) << "_";
     result << "NN1=" << operations_number.first;
     result << "NN2=" << operations_number.second;
-    for (auto i = 0; i < values.constantShapes.size(); ++i) {
-        result << "_SH" << i << "=" << values.constantShapes[i];
-    }
     return result.str();
 }
 
@@ -48,14 +45,14 @@ void ConvolutionTest::SetUp() {
     auto values = std::get<0>(testsParams);
 
     auto input_batch = std::get<1>(testsParams);
-    values.inputShape[0] = input_batch;
+    values.input_shape[0] = input_batch;
     const auto input_type = std::get<2>(testsParams);
     targetDevice = std::get<4>(testsParams);
 
-    init_input_shapes({{values.inputShape, {values.inputShape}}});
+    init_input_shapes({{values.input_shape, {values.input_shape}}});
 
     function = ov::test::snippets::ConvolutionFunction::get(
-            {values.inputShape},
+            values.input_shape,
             input_type,
             {
                 values.prerequisites_params.strides,
@@ -64,12 +61,13 @@ void ConvolutionTest::SetUp() {
                 values.prerequisites_params.kernel
             },
             {
-                values.params.strides,
-                values.params.pads_begin,
-                values.params.pads_end,
-                values.params.kernel
+                values.convolution_params.strides,
+                values.convolution_params.pads_begin,
+                values.convolution_params.pads_end,
+                values.convolution_params.dilations,
+                values.convolution_params.auto_pad
             },
-            values.constantShapes);
+            values.weights_shape);
 }
 
 void ConvolutionTest::run() {

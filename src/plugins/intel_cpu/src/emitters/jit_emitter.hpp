@@ -36,6 +36,7 @@ struct emitter_context {
 #define MARKER_TILE 11
 #define MARKER_TILE_SCHEDULER 12
 #define MARKER_MAX_POOL 13
+#define MARKER_MAX_CONVOLUTION 14
 
 class jit_emitter : public ngraph::snippets::Emitter {
 public:

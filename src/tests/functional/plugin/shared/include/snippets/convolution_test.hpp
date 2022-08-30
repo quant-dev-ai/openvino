@@ -16,16 +16,23 @@ namespace LayerTestsDefinitions {
 
 class ConvolutionTestValues {
 public:
-    struct Params {
+    struct PrerequisitesParams {
         ov::Strides strides;
         ov::Shape pads_begin;
         ov::Shape pads_end;
         ov::Shape kernel;
     };
-    ov::Shape inputShape;
-    Params prerequisites_params;
-    Params params;
-    std::vector<ov::Shape> constantShapes;
+    struct ConvolutionParams {
+        ov::Strides strides;
+        ov::CoordinateDiff pads_begin;
+        ov::CoordinateDiff pads_end;
+        ov::Strides dilations;
+        ov::op::PadType auto_pad;
+    };
+    ov::Shape input_shape;
+    PrerequisitesParams prerequisites_params;
+    ConvolutionParams convolution_params;
+    ov::Shape weights_shape;
 };
 
 typedef std::tuple<

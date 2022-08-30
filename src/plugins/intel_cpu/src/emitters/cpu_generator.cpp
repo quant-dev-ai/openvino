@@ -10,6 +10,7 @@
 
 #include "cpu_generator.hpp"
 #include "jit_snippets_emitters.hpp"
+#include "jit_snippets_emitters_convolution.hpp"
 #include "jit_eltwise_emitters.hpp"
 #include "jit_dnnl_emitters.hpp"
 #include "jit_dnnl_ext_emitters.hpp"
@@ -62,6 +63,7 @@ ov::intel_cpu::CPUTargetMachine::CPUTargetMachine(dnnl::impl::cpu::x64::cpu_isa_
 
     // layout-dependent
     jitters[ngraph::opset1::MaxPool::get_type_info_static()] = CREATE_EMITTER(MaxPoolEmitter);
+    jitters[ngraph::opset1::Convolution::get_type_info_static()] = CREATE_EMITTER(ConvolutionEmitter);
 
     // binary
     jitters[ngraph::opset1::Add::get_type_info_static()] = CREATE_EMITTER(ov::intel_cpu::jit_add_emitter);

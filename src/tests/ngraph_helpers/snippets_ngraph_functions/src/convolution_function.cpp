@@ -15,10 +15,11 @@ namespace snippets {
 std::shared_ptr<ov::Model> ConvolutionFunction::get(
         const ngraph::Shape& inputShape,
         const element::Type inputType,
-        const Params& prerequisites_params,
-        const Params& params,
-        const std::vector<ngraph::Shape>& constantShapes) {
-    assert(constantShapes.size() == 2ul);
+        const PrerequisitesParams& prerequisites_params,
+        const ConvolutionParams& convolution_params,
+        const ov::Shape& weights_shape) {
+    assert(inputShape.size() == 4ul);
+    assert(inputType == element::f32);
 
     const auto parameter = std::make_shared<ngraph::opset1::Parameter>(inputType, inputShape);
     parameter->set_friendly_name("parameter");
@@ -33,59 +34,33 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
             op::RoundingType::FLOOR);
     prerequisites->set_friendly_name("prerequisites");
 
-    const auto generate_values = [](const size_t height, const size_t width, const float begin_value) {
+    const auto generate_values = [](const Shape& shape, const float begin_value) {
         std::vector<float> values;
-        values.resize(height * width);
+        values.resize(ngraph::shape_size(shape));
         for (auto i = 0; i < values.size(); ++i) {
             values[i] = begin_value + static_cast<float>(i);
         }
         return values;
     };
 
-    const auto weights = ngraph::opset1::Constant::create(
-            element::f32,
-            Shape{ inputShape[1ul], inputShape[1ul], 1ul, 1ul },
-            generate_values(inputShape[1ul], inputShape[1ul], 10ul));
+    const auto weights = ngraph::opset1::Constant::create(element::f32, weights_shape, generate_values(weights_shape, 10ul));
     weights->set_friendly_name("weights");
 
     std::shared_ptr<Node> parent = std::make_shared<ngraph::opset1::Convolution>(
-            prerequisites,
-            weights,
-            ngraph::Strides{ 1, 1 },
-            ngraph::CoordinateDiff{ 0, 0 },
-            ngraph::CoordinateDiff{ 0, 0 },
-            ngraph::Strides{ 1, 1 });
+        prerequisites,
+        weights,
+        convolution_params.strides,
+        convolution_params.pads_begin,
+        convolution_params.pads_end,
+        convolution_params.dilations,
+        convolution_params.auto_pad);
     parent->set_friendly_name("convolution");
 
-    const auto biases = ngraph::opset1::Constant::create(
-            element::f32,
-            Shape{ inputShape[0ul], inputShape[1ul], 1ul, 1ul },
-            generate_values(inputShape[0ul], inputShape[1ul], 20ul));
+    const auto biases_shape = Shape{ 1, weights_shape[0ul], 1ul, 1ul };
+    const auto biases = ngraph::opset1::Constant::create(element::f32, biases_shape, generate_values(biases_shape, 20ul));
     biases->set_friendly_name("biases");
 
     parent = std::make_shared<ngraph::opset1::Add>(parent, biases);
-
-    //std::shared_ptr<Node> parent = prerequisites;
-
-    //auto generate_values = [](const ngraph::Shape& shape, const float initial_value = 0.f) {
-    //    std::vector<float> multiply_values(shape_size(shape));
-    //    for (auto i = 0; i < multiply_values.size(); ++i) {
-    //        multiply_values[i] = static_cast<float>(initial_value + i);
-    //    }
-    //    return multiply_values;
-    //};
-    //
-    //const auto multiply_value = ngraph::opset1::Constant::create(
-    //        element::f32,
-    //        constantShapes[0],
-    //        generate_values(constantShapes[0], 2.f));
-    //parent = std::make_shared<ngraph::opset1::Multiply>(parent, multiply_value);
-    //
-    //const auto add_value = ngraph::opset1::Constant::create(
-    //        element::f32,
-    //        constantShapes[1],
-    //        generate_values(constantShapes[1], shape_size(constantShapes[0]) + 2.f));
-    //parent = std::make_shared<ngraph::opset1::Add>(parent, add_value);
 
     const auto result = std::make_shared<ngraph::opset1::Result>(parent);
     result->set_friendly_name("result");
