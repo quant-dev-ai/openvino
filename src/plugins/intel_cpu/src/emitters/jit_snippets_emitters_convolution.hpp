@@ -19,6 +19,7 @@ class ConvolutionEmitter : public MemoryEmitter {
 public:
     ConvolutionEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa, const std::shared_ptr<ov::Node>& n);
 
+    // TODO: biases?
     size_t get_inputs_num() const override {return 2ul;}
 
 private:
@@ -33,8 +34,9 @@ private:
 
 private:
     bool shouldPostIncrement;
-    ov::Shape kernel;
-    ov::Shape input_shape;
+
+    ov::op::PadType auto_pad;
+    ov::Shape weights_shape;
 };
 }   // namespace intel_cpu
 }   // namespace ov

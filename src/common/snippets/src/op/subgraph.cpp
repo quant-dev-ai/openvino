@@ -13,6 +13,7 @@
 #include "snippets/pass/convert_constants_to_scalars.hpp"
 #include "snippets/pass/convert_power_to_powerstatic.hpp"
 #include "snippets/pass/vector_to_scalar.hpp"
+#include "snippets/pass/convolution_decomposition.hpp"
 
 #include <ngraph/pass/manager.hpp>
 #include <openvino/pass/serialize.hpp>
@@ -272,6 +273,15 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     manager.run_passes(m_body);
 
     ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.2.svg").run_on_model(m_body);
+
+    {
+        // TODO: use the the same manager
+        ngraph::pass::Manager manager;
+        manager.register_pass<snippets::pass::ConvolutionDecomposition>();
+        manager.run_passes(m_body);
+    }
+
+    ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.3.svg").run_on_model(m_body);
 }
 
 snippets::Schedule snippets::op::Subgraph::generate(const BlockedShapeVector& output_shapes,

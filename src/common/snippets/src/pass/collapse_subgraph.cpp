@@ -107,6 +107,7 @@ auto is_layout_oblivious(const std::shared_ptr<const Node> &n) -> bool {
 
 auto is_layout_dependent(const std::shared_ptr<const Node> &n) -> bool {
     return ov::is_type<opset1::MaxPool>(n) || ov::is_type<opset1::Convolution>(n);
+    //return ov::is_type<opset1::MaxPool>(n);
 }
 auto has_supported_in_out(const std::shared_ptr<const Node> &n) -> bool {
     auto supported = [](descriptor::Tensor& t) -> bool {

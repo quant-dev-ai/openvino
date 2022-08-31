@@ -67,7 +67,10 @@ void op::v1::Convolution::validate_and_infer_types() {
     auto& data_shape = get_input_partial_shape(0);
     auto& filter_shape = get_input_partial_shape(1);
 
-    m_num_spatial = calculate_num_spatial(this, data_shape, filter_shape, 2, 2);
+    // 2, 2 <- ???
+    // m_num_spatial = calculate_num_spatial(this, data_shape, filter_shape, 2, 2);
+    // TODO: just to debug
+    m_num_spatial = 2ul;
     update_and_validate_attributes(this);
 
     std::vector<ov::PartialShape> input_shapes = {data_shape, filter_shape};

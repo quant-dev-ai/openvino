@@ -21,10 +21,10 @@ ConvolutionEmitter::ConvolutionEmitter(
     in_out_type_ = emitter_in_out_map::gpr_to_vec;
     shouldPostIncrement = true;
 
-    const auto& max_pool = as_type_ptr<ngraph::opset1::MaxPool>(n);
-    kernel = max_pool->get_kernel();
-    // TODO: backprop: static shape is supported only
-    input_shape = max_pool->get_input_shape(0);
+    const auto& convolution = as_type_ptr<ngraph::opset1::Convolution>(n);
+    auto_pad = convolution->get_auto_pad();
+
+    weights_shape = convolution->get_input_node_shared_ptr(1)->get_shape();
 }
 
 void ConvolutionEmitter::emit_impl(const std::vector<size_t>& in,
@@ -51,11 +51,25 @@ void ConvolutionEmitter::emit_isa(const std::vector<size_t> &in, const std::vect
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
 
-    Reg64 in_reg1(static_cast<int>(in[0]));
-    Reg64 in_reg2(static_cast<int>(in[0]));
+    const auto offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
 
-    Vmm vmm_in0 = Vmm(in[0]);
-    Vmm vmm_out0 = Vmm(out[0]);
+    Reg64 in_reg1(static_cast<int>(in[0]));
+    Reg64 in_reg2(static_cast<int>(in[1]));
+
+    Vmm data = Vmm(0);
+    h->uni_vmovups(data, h->ptr[in_reg1]);
+
+    Vmm weights = Vmm(1);
+    h->uni_vmovups(weights, h->ptr[in_reg2]);
+
+    Vmm output = Vmm(3);
+    h->uni_vfmadd231ps(output, data, weights);
+
+    //Vmm vmm1 = Vmm(1);
+    //h->uni_vmovups(vmm1, h->ptr[in_reg1 + offset * weights_shape]);
+
+    //Vmm vmm2 = Vmm(2);
+    //h->uni_vmovups(vmm1, h->ptr[in_reg1 + offset]);
 
 
     h->add(in_reg1, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
