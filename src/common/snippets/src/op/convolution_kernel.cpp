@@ -12,7 +12,13 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-ConvolutionKernel::ConvolutionKernel(const Output<Node>& parent, const Output<Node>& filters) : Op({parent}) {
+ConvolutionKernel::ConvolutionKernel(const Output<Node>& parent, const Output<Node>& filters) : Op({parent, filters}) {
+    constructor_validate_and_infer_types();
+}
+
+void ConvolutionKernel::validate_and_infer_types() {
+    auto input_shape = get_input_partial_shape(0);
+    set_output_type(0, get_input_element_type(0), {1, 12, 112, 112, 8});
 }
 
 std::shared_ptr<Node> ConvolutionKernel::clone_with_new_inputs(const OutputVector& inputs) const {

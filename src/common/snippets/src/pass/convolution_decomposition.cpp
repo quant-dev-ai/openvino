@@ -65,26 +65,22 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
             return false;
         }
 
-        const auto& target_inputs = convolution->output(0).get_target_inputs();
+        const auto &target_inputs = convolution->output(0).get_target_inputs();
         if (target_inputs.size() != 1ul) {
             return false;
         }
 
-        const auto loop = std::make_shared<snippets::op::Loop>(convolution, convolution);
-        ngraph::copy_runtime_info(convolution, loop);
+        const auto parent = convolution->get_input_node_shared_ptr(0);
+        const auto loop = std::make_shared<snippets::op::Loop>(parent, parent);
         loop->set_friendly_name(convolution->get_friendly_name() + "_loop");
 
         const auto convolution_kernel = std::make_shared<snippets::op::ConvolutionKernel>(loop, convolution->get_input_node_shared_ptr(1));
         ngraph::copy_runtime_info(convolution, convolution_kernel);
         convolution_kernel->set_friendly_name(convolution->get_friendly_name());
 
-
-
-        auto parent = convolution->get_input_node_shared_ptr(0);
-        const auto parent_output = parent->output(0);
-
-        loop->input(0).replace_source_output(parent_output);
-        parent_output.remove_target_input(convolution->input(0));
+        //const auto parent_output = parent->output(0);
+        //loop->input(0).replace_source_output(parent_output);
+        //parent_output.remove_target_input(convolution->input(0));
 
 
         std::vector<std::shared_ptr<Node>> nodes;
@@ -92,32 +88,36 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         // TODO: return inputs (not nodes)
         auto next = (*convolution->output(0).get_target_inputs().begin()).get_node()->shared_from_this();
         fill_body(next, true, nodes);
+        assert(nodes.size() > 0);
+
+        auto first = nodes[0];
+        auto last = nodes.back();
+
+        first->input(0).replace_source_output(convolution_kernel->output(0));
 
 
-        nodes[0]->input(0).replace_source_output(convolution_kernel->output(0));
-
-
-        const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(nodes.back());
+        const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(last);
         ngraph::copy_runtime_info(convolution, conditional_jump);
         conditional_jump->set_friendly_name(convolution->get_friendly_name() + "_jump");
 
         loop->input(1).replace_source_output(conditional_jump->output(0));
 
-        const auto child_input = *nodes.back()->output(0).get_target_inputs().begin();
+        const auto child_input = *last->output(0).get_target_inputs().begin();
         child_input.replace_source_output(conditional_jump->output(1));
 
 
+        {
+            // TODO: just to check
+            assert(loop->output(0).get_target_inputs().size() == 1ul);
+            assert(conditional_jump->output(0).get_target_inputs().size() == 1ul);
+            assert(conditional_jump->output(1).get_target_inputs().size() == 1ul);
+            const auto expected_loop = conditional_jump->output(0).get_target_inputs().begin()->get_node();
+            assert(expected_loop == loop.get());
+            const auto expected_result = conditional_jump->output(1).get_target_inputs().begin()->get_node();
+            assert(expected_result == child_input.get_node());
+        }
 
-        //.get_target_inputs().begin();
-        //parent_output.remove_target_input()
 
-        //conditional_jump->output(0)->re
-
-
-        //const auto loop2 = std::make_shared<snippets::op::Loop>(convolution, conditional_jump);
-        //ngraph::copy_runtime_info(convolution, loop2);
-        //loop2->set_friendly_name(convolution->get_friendly_name() + "_loop");
-        //ngraph::replace_node(loop, loop2);
 
         return true;
     };
