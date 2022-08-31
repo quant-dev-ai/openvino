@@ -29,6 +29,31 @@ namespace ngraph {
 namespace snippets {
 namespace pass {
 
+namespace {
+void fill_body(const std::shared_ptr<Node>& node, const bool check, std::vector<std::shared_ptr<Node>>& nodes) {
+    if (is_type<opset1::Result>(node) || (check && node->get_output_size() != 1ul)) {
+        return;
+    }
+
+    const auto& target_inputs = node->output(0).get_target_inputs();
+    if (check && target_inputs.size() != 1ul) {
+        return;
+    }
+
+    if (check) {
+        auto &rt = node->get_rt_info();
+        auto it = rt.find("LayoutDependent");
+        if (it != rt.end()) {
+            return;
+        }
+    }
+
+    nodes.push_back(node);
+
+    fill_body(target_inputs.begin()->get_node()->shared_from_this(), true, nodes);
+}
+} // namespace
+
 ConvolutionDecomposition::ConvolutionDecomposition() {
     MATCHER_SCOPE(ConvolutionDecomposition);
 
@@ -53,21 +78,33 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         ngraph::copy_runtime_info(convolution, convolution_kernel);
         convolution_kernel->set_friendly_name(convolution->get_friendly_name());
 
-        const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(convolution_kernel);
-        ngraph::copy_runtime_info(convolution, conditional_jump);
-        conditional_jump->set_friendly_name(convolution->get_friendly_name() + "_jump");
 
-        //ngraph::replace_node(convolution, conditional_jump);
+
         auto parent = convolution->get_input_node_shared_ptr(0);
         const auto parent_output = parent->output(0);
 
         loop->input(0).replace_source_output(parent_output);
         parent_output.remove_target_input(convolution->input(0));
 
+
+        std::vector<std::shared_ptr<Node>> nodes;
+        // TODO: get the latest only
+        // TODO: return inputs (not nodes)
+        auto next = (*convolution->output(0).get_target_inputs().begin()).get_node()->shared_from_this();
+        fill_body(next, true, nodes);
+
+
+        nodes[0]->input(0).replace_source_output(convolution_kernel->output(0));
+
+
+        const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(nodes.back());
+        ngraph::copy_runtime_info(convolution, conditional_jump);
+        conditional_jump->set_friendly_name(convolution->get_friendly_name() + "_jump");
+
         loop->input(1).replace_source_output(conditional_jump->output(0));
 
-        const auto child_input = convolution->output(0).get_target_inputs().begin();
-        child_input->replace_source_output(conditional_jump->output(1));
+        const auto child_input = *nodes.back()->output(0).get_target_inputs().begin();
+        child_input.replace_source_output(conditional_jump->output(1));
 
 
 

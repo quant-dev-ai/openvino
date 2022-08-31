@@ -255,7 +255,6 @@ std::vector<std::shared_ptr<Node>> topological_sort(T root_nodes) {
     }
     while (nodes_to_do.size() > 0) {
         Node* node = nodes_to_do.top();
-        std::cout << "topological_sort: node = " << node->get_type_name() << ":" << node->get_friendly_name() << std::endl;
         if (nodes_done.count(node) == 0) {
             bool can_add = true;
             size_t arg_count = node->get_input_size();
@@ -265,7 +264,6 @@ std::vector<std::shared_ptr<Node>> topological_sort(T root_nodes) {
                     can_add = false;
                     nodes_to_do.push(dep);
                     dep_was_added.insert({node, dep});
-                    std::cout << "topological_sort: added node = " << dep->get_type_name() << ":" << dep->get_friendly_name() << std::endl;
                 }
             }
             for (auto& depptr : node->get_control_dependencies()) {
@@ -274,18 +272,15 @@ std::vector<std::shared_ptr<Node>> topological_sort(T root_nodes) {
                     can_add = false;
                     nodes_to_do.push(dep);
                     dep_was_added.insert({node, dep});
-                    std::cout << "topological_sort: added node = " << dep->get_type_name() << ":" << dep->get_friendly_name() << std::endl;
                 }
             }
             if (can_add) {
                 result.push_back(node->shared_from_this());
                 nodes_to_do.pop();
                 nodes_done.insert(node);
-                std::cout << "topological_sort: removed" << std::endl;
             }
         } else {
             nodes_to_do.pop();
-            std::cout << "topological_sort: removed" << std::endl;
         }
     }
     return result;
