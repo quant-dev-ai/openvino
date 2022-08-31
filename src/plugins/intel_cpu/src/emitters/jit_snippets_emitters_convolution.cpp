@@ -51,7 +51,7 @@ void ConvolutionEmitter::emit_isa(const std::vector<size_t> &in, const std::vect
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
 
-    const auto offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+    //const auto offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
 
     Reg64 in_reg1(static_cast<int>(in[0]));
     Reg64 in_reg2(static_cast<int>(in[1]));

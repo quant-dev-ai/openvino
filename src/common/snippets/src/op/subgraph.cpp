@@ -14,6 +14,7 @@
 #include "snippets/pass/convert_power_to_powerstatic.hpp"
 #include "snippets/pass/vector_to_scalar.hpp"
 #include "snippets/pass/convolution_decomposition.hpp"
+#include "snippets/pass/markup.hpp"
 
 #include <ngraph/pass/manager.hpp>
 #include <openvino/pass/serialize.hpp>
@@ -277,6 +278,7 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     {
         // TODO: use the the same manager
         ngraph::pass::Manager manager;
+        manager.register_pass<snippets::pass::Markup>();
         manager.register_pass<snippets::pass::ConvolutionDecomposition>();
         manager.run_passes(m_body);
     }

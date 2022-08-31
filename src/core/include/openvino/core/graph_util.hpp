@@ -10,6 +10,7 @@
 #include <memory>
 #include <stack>
 #include <string>
+#include <utility>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -219,6 +220,27 @@ void replace_nodes(const std::shared_ptr<Model>& f,
                        parameter_replacement_map,
                    const std::unordered_map<std::shared_ptr<Node>, std::shared_ptr<Node>>& body_replacement_map);
 
+namespace {
+
+// TODO: improve: https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
+template <class T>
+inline void hash_combine2(std::size_t& seed, const T& v)
+{
+    std::hash<T> hasher;
+    seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+}
+
+struct NodesHash {
+    std::size_t operator()(const std::pair<Node*, Node*> &value) const {
+        size_t hash_value = 0ul;
+        hash_combine2(hash_value, value.first);
+        hash_combine2(hash_value, value.second);
+        return hash_value;
+    }
+};
+
+} // namespace
+
 /// Topological sort of nodes needed to compute root_nodes
 template <typename T>
 std::vector<std::shared_ptr<Node>> topological_sort(T root_nodes) {
@@ -226,35 +248,44 @@ std::vector<std::shared_ptr<Node>> topological_sort(T root_nodes) {
     std::unordered_set<Node*> nodes_done;
     std::vector<std::shared_ptr<Node>> result;
 
+    std::unordered_set<std::pair<Node*, Node*>, NodesHash> dep_was_added;
+
     for (auto& node : root_nodes) {
         nodes_to_do.push(node.get());
     }
     while (nodes_to_do.size() > 0) {
         Node* node = nodes_to_do.top();
+        std::cout << "topological_sort: node = " << node->get_type_name() << ":" << node->get_friendly_name() << std::endl;
         if (nodes_done.count(node) == 0) {
             bool can_add = true;
             size_t arg_count = node->get_input_size();
             for (size_t i = 0; i < arg_count; ++i) {
                 Node* dep = node->get_input_node_ptr(arg_count - i - 1);
-                if (nodes_done.count(dep) == 0) {
+                if ((nodes_done.count(dep) == 0) && (dep_was_added.count({node, dep}) == 0)) {
                     can_add = false;
                     nodes_to_do.push(dep);
+                    dep_was_added.insert({node, dep});
+                    std::cout << "topological_sort: added node = " << dep->get_type_name() << ":" << dep->get_friendly_name() << std::endl;
                 }
             }
             for (auto& depptr : node->get_control_dependencies()) {
                 Node* dep = depptr.get();
-                if (nodes_done.count(dep) == 0) {
+                if ((nodes_done.count(dep) == 0) && (dep_was_added.count({node, dep}) == 0)) {
                     can_add = false;
                     nodes_to_do.push(dep);
+                    dep_was_added.insert({node, dep});
+                    std::cout << "topological_sort: added node = " << dep->get_type_name() << ":" << dep->get_friendly_name() << std::endl;
                 }
             }
             if (can_add) {
                 result.push_back(node->shared_from_this());
                 nodes_to_do.pop();
                 nodes_done.insert(node);
+                std::cout << "topological_sort: removed" << std::endl;
             }
         } else {
             nodes_to_do.pop();
+            std::cout << "topological_sort: removed" << std::endl;
         }
     }
     return result;

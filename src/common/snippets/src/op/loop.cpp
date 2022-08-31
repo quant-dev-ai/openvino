@@ -12,22 +12,22 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-Loop::Loop(const Output<Node>& parent) : Op({ parent }) {
+Loop::Loop(const Output<Node>& parent, const Output<Node>& jump) : Op({ parent, jump }) {
     constructor_validate_and_infer_types();
 }
 
 void Loop::validate_and_infer_types() {
-    set_output_size(2);
-
-    std::vector<ov::PartialShape> input_shapes = { get_input_partial_shape(0) };
-    set_output_type(0, get_input_element_type(0), input_shapes[0]);
-    set_output_type(0, get_input_element_type(0), input_shapes[0]);
+    //set_output_size(2);
+    //
+    //std::vector<ov::PartialShape> input_shapes = { get_input_partial_shape(0) };
+    //set_output_type(0, get_input_element_type(0), input_shapes[0]);
+    //set_output_type(0, get_input_element_type(0), input_shapes[0]);
 
     set_input_is_relevant_to_shape(0);
 }
 
 std::shared_ptr<Node> Loop::clone_with_new_inputs(const OutputVector& inputs) const {
-    return std::make_shared<Loop>(inputs[0]);
+    return std::make_shared<Loop>(inputs[0], inputs[1]);
 }
 
 } // namespace op

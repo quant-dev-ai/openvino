@@ -24,7 +24,7 @@ ngraph::snippets::pass::InsertLoad::InsertLoad() {
             if (inputs.size() == 1ul) {
                 const auto& input_node = inputs.begin()->get_node();
                 // TODO: workaround
-                if (is_type<opset1::MaxPool>(input_node) || is_type<opset1::Convolution>(input_node)) {
+                if (is_type<opset1::MaxPool>(input_node)) {
                     return false;
                 }
             }

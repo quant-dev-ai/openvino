@@ -45,7 +45,7 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
             return false;
         }
 
-        const auto loop = std::make_shared<snippets::op::Loop>(convolution->get_input_node_shared_ptr(0)->output(0));
+        const auto loop = std::make_shared<snippets::op::Loop>(convolution, convolution);
         ngraph::copy_runtime_info(convolution, loop);
         loop->set_friendly_name(convolution->get_friendly_name() + "_loop");
 
@@ -53,12 +53,34 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         ngraph::copy_runtime_info(convolution, convolution_kernel);
         convolution_kernel->set_friendly_name(convolution->get_friendly_name());
 
-        const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(convolution_kernel, loop);
+        const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(convolution_kernel);
         ngraph::copy_runtime_info(convolution, conditional_jump);
         conditional_jump->set_friendly_name(convolution->get_friendly_name() + "_jump");
 
+        //ngraph::replace_node(convolution, conditional_jump);
+        auto parent = convolution->get_input_node_shared_ptr(0);
+        const auto parent_output = parent->output(0);
 
-        ngraph::replace_node(convolution, conditional_jump);
+        loop->input(0).replace_source_output(parent_output);
+        parent_output.remove_target_input(convolution->input(0));
+
+        loop->input(1).replace_source_output(conditional_jump->output(0));
+
+        const auto child_input = convolution->output(0).get_target_inputs().begin();
+        child_input->replace_source_output(conditional_jump->output(1));
+
+
+
+        //.get_target_inputs().begin();
+        //parent_output.remove_target_input()
+
+        //conditional_jump->output(0)->re
+
+
+        //const auto loop2 = std::make_shared<snippets::op::Loop>(convolution, conditional_jump);
+        //ngraph::copy_runtime_info(convolution, loop2);
+        //loop2->set_friendly_name(convolution->get_friendly_name() + "_loop");
+        //ngraph::replace_node(loop, loop2);
 
         return true;
     };

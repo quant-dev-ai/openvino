@@ -16,7 +16,8 @@ class ConditionalJump : public ngraph::op::Op {
 public:
     OPENVINO_OP("ConditionalJump", "SnippetsOpset");
 
-    ConditionalJump(const Output<Node>& parent, const Output<Node>& loop);
+    ConditionalJump(const Output<Node>& parent);
+    void validate_and_infer_types() override;
     std::shared_ptr<Node> clone_with_new_inputs(const OutputVector& inputs) const override;
 };
 
