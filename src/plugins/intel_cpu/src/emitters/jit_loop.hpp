@@ -15,11 +15,9 @@ using ngraph::snippets::AllocatedEmitter;
 namespace ov {
 namespace intel_cpu {
 
-class ConvolutionEmitter : public MemoryEmitter {
+class LoopEmitter : public jit_emitter {
 public:
-    ConvolutionEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa, const std::shared_ptr<ov::Node>& n);
-
-    // TODO: biases?
+    LoopEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa, const std::shared_ptr<ov::Node>& n);
     size_t get_inputs_num() const override {return 2ul;}
 
 private:
@@ -35,8 +33,7 @@ private:
 private:
     bool shouldPostIncrement;
 
-    ov::op::PadType auto_pad;
-    ov::Shape weights_shape;
+    size_t iterations_count;
 };
 }   // namespace intel_cpu
 }   // namespace ov

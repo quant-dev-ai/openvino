@@ -27,16 +27,18 @@ struct emitter_context {
     virtual ~emitter_context() = default;
 };
 
-#define MARKER_LOAD 5
-#define MARKER_BROADCAST 6
-#define MARKER_BROADCAST_LOAD 7
-#define MARKER_MULTIPLY 8
-#define MARKER_ADD 9
-#define MARKER_STORE 10
-#define MARKER_TILE 11
-#define MARKER_TILE_SCHEDULER 12
-#define MARKER_MAX_POOL 13
-#define MARKER_MAX_CONVOLUTION 14
+#define MARKER_LOAD 0
+#define MARKER_BROADCAST 1
+#define MARKER_BROADCAST_LOAD 2
+#define MARKER_ADD 3
+#define MARKER_MULTIPLY 4
+#define MARKER_STORE 5
+#define MARKER_TILE 6
+#define MARKER_TILE_SCHEDULER 7
+#define MARKER_MAX_POOL 8
+#define MARKER_LOOP 9
+#define MARKER_CONVOLUTION_KERNEL 10
+#define MARKER_CONDITIONAL_JUMP 11
 
 class jit_emitter : public ngraph::snippets::Emitter {
 public:

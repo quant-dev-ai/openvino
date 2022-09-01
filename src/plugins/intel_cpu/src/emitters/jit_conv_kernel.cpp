@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "jit_snippets_emitters_convolution.hpp"
+#include "jit_conv_kernel.hpp"
 
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
@@ -13,10 +13,10 @@ using namespace Xbyak;
 namespace ov {
 namespace intel_cpu {
 
-ConvolutionEmitter::ConvolutionEmitter(
+ConvolutionKernelEmitter::ConvolutionKernelEmitter(
         dnnl::impl::cpu::x64::jit_generator* h,
         dnnl::impl::cpu::x64::cpu_isa_t isa,
-        const std::shared_ptr<ov::Node>& n) : MemoryEmitter(h, isa, n) {
+        const std::shared_ptr<ov::Node>& n) : jit_emitter(h, isa, n) {
     // TODO: backprop: do we need it???
     in_out_type_ = emitter_in_out_map::gpr_to_vec;
     shouldPostIncrement = true;
@@ -27,7 +27,7 @@ ConvolutionEmitter::ConvolutionEmitter(
     weights_shape = convolution->get_input_node_shared_ptr(1)->get_shape();
 }
 
-void ConvolutionEmitter::emit_impl(const std::vector<size_t>& in,
+void ConvolutionKernelEmitter::emit_impl(const std::vector<size_t>& in,
                             const std::vector<size_t>& out,
                             const std::vector<size_t>& pool,
                             const std::vector<size_t>& gpr,
@@ -45,8 +45,8 @@ void ConvolutionEmitter::emit_impl(const std::vector<size_t>& in,
 }
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
-void ConvolutionEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
-    insert_marker(MARKER_MAX_CONVOLUTION);
+void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    insert_marker(MARKER_CONVOLUTION_KERNEL);
 
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
@@ -75,7 +75,7 @@ void ConvolutionEmitter::emit_isa(const std::vector<size_t> &in, const std::vect
     h->add(in_reg1, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
     h->add(in_reg2, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
 
-    insert_marker(MARKER_MAX_CONVOLUTION);
+    insert_marker(MARKER_CONVOLUTION_KERNEL);
 }
 
 }   // namespace intel_cpu
