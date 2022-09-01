@@ -12,6 +12,8 @@
 
 #include <ngraph/pass/manager.hpp>
 
+#include <ngraph/pass/visualize_tree.hpp>
+
 auto ngraph::snippets::getRegisters(std::shared_ptr<ngraph::Node>& n) -> ngraph::snippets::RegInfo {
     OV_ITT_SCOPED_TASK(ngraph::pass::itt::domains::SnippetsTransform, "Snippets::getRegisters")
     auto rt = n->get_rt_info();
@@ -57,12 +59,19 @@ ngraph::snippets::code ngraph::snippets::Generator::generate(std::shared_ptr<ov:
     }
     OV_ITT_TASK_NEXT(GENERATE, "::ScalarTile")
 
+    ov::pass::VisualizeTree("svg/snippets.generator.1.svg").run_on_model(m);
+    std::cout << "Generator::generate:" << std::endl;
+
     // scalar tile
     auto m_scalar = ov::clone_model(*m.get());
+    ov::pass::VisualizeTree("svg/snippets.generator.2.svg").run_on_model(m_scalar);
+
     ngraph::pass::Manager mng;
     mng.register_pass<ngraph::snippets::pass::ReplaceLoadsWithScalarLoads>();
     mng.register_pass<ngraph::snippets::pass::ReplaceStoresWithScalarStores>();
     mng.run_passes(m_scalar);
+    ov::pass::VisualizeTree("svg/snippets.generator.3.svg").run_on_model(m_scalar);
+
     OV_ITT_TASK_NEXT(GENERATE, "::ScalarTile_get")
     std::vector<AllocatedEmitter> scalar_lowered;
     for (auto n : m_scalar->get_ordered_ops()) {

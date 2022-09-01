@@ -7,6 +7,7 @@
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
 #include <ngraph/opsets/opset1.hpp>
+#include "snippets/op/convolution_kernel.hpp"
 
 using namespace Xbyak;
 
@@ -21,9 +22,9 @@ ConvolutionKernelEmitter::ConvolutionKernelEmitter(
     in_out_type_ = emitter_in_out_map::gpr_to_vec;
     shouldPostIncrement = true;
 
-    const auto& convolution = as_type_ptr<ngraph::opset1::Convolution>(n);
-    auto_pad = convolution->get_auto_pad();
-
+    const auto& convolution = as_type_ptr<ngraph::snippets::op::ConvolutionKernel>(n);
+    assert(convolution != nullptr);
+    //auto_pad = convolution->get_auto_pad();
     weights_shape = convolution->get_input_node_shared_ptr(1)->get_shape();
 }
 

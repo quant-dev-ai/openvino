@@ -15,13 +15,11 @@ namespace ov {
 namespace intel_cpu {
 
 LoopEmitter::LoopEmitter(
-        dnnl::impl::cpu::x64::jit_generator* h,
+        jit_snippets_generator* h,
         dnnl::impl::cpu::x64::cpu_isa_t isa,
         const std::shared_ptr<ov::Node>& n) : jit_emitter(h, isa, n) {
-    shouldPostIncrement = true;
-
     const auto& loop = as_type_ptr<ngraph::snippets::op::Loop>(n);
-    iterations_count = loop->get_iterations_count();
+    label_id = loop->get_instance_id();
 }
 
 void LoopEmitter::emit_impl(const std::vector<size_t>& in,
@@ -44,10 +42,8 @@ void LoopEmitter::emit_impl(const std::vector<size_t>& in,
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void LoopEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
     insert_marker(MARKER_LOOP);
-
-
-    //h->L(Xbyak::Label())
-
+    auto label = Xbyak::Label();
+    static_cast<jit_snippets_generator*>(h)->L(label, label_id);
     insert_marker(MARKER_LOOP);
 }
 

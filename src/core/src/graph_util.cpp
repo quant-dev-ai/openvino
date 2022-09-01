@@ -213,16 +213,74 @@ bool ngraph::is_post_dominated(Node* X, Node* Y) {
     return true;
 }
 
+class SuspendedAction {
+public:
+    SuspendedAction(
+            const std::string& target_node_friendly_name,
+            const size_t target_port_index,
+            const std::string& source_node_friendly_name,
+            const size_t source_port_index) :
+            target_node_friendly_name(target_node_friendly_name),
+            target_port_index(target_port_index),
+            source_node_friendly_name(source_node_friendly_name),
+            source_port_index(source_port_index) {}
+
+    std::string target_node_friendly_name;
+    size_t target_port_index;
+
+    std::string source_node_friendly_name;
+    size_t source_port_index;
+
+    void execute(const std::vector<std::shared_ptr<ngraph::Node>> nodes) const {
+        auto source_node = get_node(source_node_friendly_name, nodes);
+        auto target_node = get_node(target_node_friendly_name, nodes);
+        target_node->input(target_port_index).replace_source_output(source_node->output(source_port_index));
+    }
+
+private:
+    std::shared_ptr<ngraph::Node> get_node (
+            const std::string& friendly_name,
+            const std::vector<std::shared_ptr<ngraph::Node>>& nodes) const {
+        for (const auto& node : nodes) {
+            if (node->get_friendly_name() == friendly_name) {
+                return node;
+            }
+        }
+
+        assert(false);
+    }
+};
 std::vector<std::shared_ptr<ngraph::Node>> ngraph::clone_nodes(const std::vector<std::shared_ptr<ngraph::Node>>& nodes,
                                                                NodeMap& node_map) {
+    std::vector<SuspendedAction> suspended_actions;
+
     // for each node in topological order
     auto sorted_nodes = topological_sort(nodes);
     for (const auto& node : sorted_nodes) {
+        std::cout << "node: " << node->get_type_name() << ":" << node->get_friendly_name() << std::endl;
         if (node_map.count(node.get()) == 0) {
+            std::cout << "\tabsent: " << node->get_type_name() << ":" << node->get_friendly_name() << std::endl;
+
             // get (already) cloned arguments and clone the node
             OutputVector cloned_args;
             for (auto input : node->inputs()) {
                 Output<Node> output = input.get_source_output();
+                std::cout <<
+                    "\tsource_node=" << output.get_node()->get_type_name() <<
+                    ":" << output.get_node()->get_friendly_name() <<
+                    std::endl;
+
+                auto it = node_map.find(output.get_node());
+                if (it == node_map.end()) {
+                    //TODO: FIXME: first input is used
+                    //TODO: shares can be different
+                    suspended_actions.push_back(SuspendedAction(
+                            node->get_friendly_name(),
+                            input.get_index(),
+                            output.get_node()->get_friendly_name(),
+                            output.get_index()));
+                    output = node->input(0).get_source_output();
+                }
                 cloned_args.push_back(output.for_node(node_map.at(output.get_node())));
             }
             std::vector<std::shared_ptr<Node>> cloned_dependencies;
@@ -263,6 +321,11 @@ std::vector<std::shared_ptr<ngraph::Node>> ngraph::clone_nodes(const std::vector
     for (const auto& node : nodes) {
         cloned_nodes.push_back(node_map.at(node.get()));
     }
+
+    for (const auto& suspended_action : suspended_actions) {
+        suspended_action.execute(cloned_nodes);
+    }
+
     return cloned_nodes;
 }
 

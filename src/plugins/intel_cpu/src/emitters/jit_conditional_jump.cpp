@@ -7,6 +7,8 @@
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
 #include <ngraph/opsets/opset1.hpp>
+#include "snippets/op/conditional_jump.hpp"
+#include "snippets/op/loop.hpp"
 
 using namespace Xbyak;
 
@@ -14,17 +16,17 @@ namespace ov {
 namespace intel_cpu {
 
 ConditionalJumpEmitter::ConditionalJumpEmitter(
-        dnnl::impl::cpu::x64::jit_generator* h,
+        jit_snippets_generator* h,
         dnnl::impl::cpu::x64::cpu_isa_t isa,
         const std::shared_ptr<ov::Node>& n) : jit_emitter(h, isa, n) {
-    // TODO: backprop: do we need it???
-    in_out_type_ = emitter_in_out_map::gpr_to_vec;
-    shouldPostIncrement = true;
+    const auto& conditional_jump = as_type_ptr<ngraph::snippets::op::ConditionalJump>(n);
+    iterations_count = conditional_jump->get_iterations_count();
 
-    const auto& convolution = as_type_ptr<ngraph::opset1::Convolution>(n);
-    auto_pad = convolution->get_auto_pad();
-
-    weights_shape = convolution->get_input_node_shared_ptr(1)->get_shape();
+    assert(conditional_jump->output(0).get_target_inputs().size() == 1ul);
+    const auto loop = ngraph::as_type_ptr<ngraph::snippets::op::Loop>(
+            (*conditional_jump->output(0).get_target_inputs().begin()).get_node()->shared_from_this());
+    assert(loop != nullptr);
+    label_id = loop->get_instance_id();
 }
 
 void ConditionalJumpEmitter::emit_impl(const std::vector<size_t>& in,
@@ -33,11 +35,11 @@ void ConditionalJumpEmitter::emit_impl(const std::vector<size_t>& in,
                             const std::vector<size_t>& gpr,
                             const ov::intel_cpu::emitter_context *emit_context) const {
     if (host_isa_ == dnnl::impl::cpu::x64::sse41) {
-        emit_isa<dnnl::impl::cpu::x64::sse41>(in, out);
+        emit_isa<dnnl::impl::cpu::x64::sse41>(in, out, gpr);
     } else if (host_isa_ == dnnl::impl::cpu::x64::avx2) {
-        emit_isa<dnnl::impl::cpu::x64::avx2>(in, out);
+        emit_isa<dnnl::impl::cpu::x64::avx2>(in, out, gpr);
     } else if (host_isa_ == dnnl::impl::cpu::x64::avx512_common) {
-        emit_isa<dnnl::impl::cpu::x64::avx512_common>(in, out);
+        emit_isa<dnnl::impl::cpu::x64::avx512_common>(in, out, gpr);
     } else {
         IE_THROW() << host_isa_;
         assert(!"unsupported isa");
@@ -45,35 +47,19 @@ void ConditionalJumpEmitter::emit_impl(const std::vector<size_t>& in,
 }
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
-void ConditionalJumpEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+void ConditionalJumpEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out, const std::vector<size_t>& gpr) const {
     insert_marker(MARKER_CONDITIONAL_JUMP);
 
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
 
-    //const auto offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+    auto label = static_cast<jit_snippets_generator*>(h)->get_label(label_id);
 
-    Reg64 in_reg1(static_cast<int>(in[0]));
-    Reg64 in_reg2(static_cast<int>(in[1]));
+    Reg64 iteration_reg = Reg64(static_cast<int>(gpr.back()));
 
-    Vmm data = Vmm(0);
-    h->uni_vmovups(data, h->ptr[in_reg1]);
-
-    Vmm weights = Vmm(1);
-    h->uni_vmovups(weights, h->ptr[in_reg2]);
-
-    Vmm output = Vmm(3);
-    h->uni_vfmadd231ps(output, data, weights);
-
-    //Vmm vmm1 = Vmm(1);
-    //h->uni_vmovups(vmm1, h->ptr[in_reg1 + offset * weights_shape]);
-
-    //Vmm vmm2 = Vmm(2);
-    //h->uni_vmovups(vmm1, h->ptr[in_reg1 + offset]);
-
-
-    h->add(in_reg1, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
-    h->add(in_reg2, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+    h->sub(iteration_reg, 1);
+    h->cmp(iteration_reg, 1);
+    h->jge(label, CodeGenerator::T_NEAR);
 
     insert_marker(MARKER_CONDITIONAL_JUMP);
 }

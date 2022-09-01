@@ -12,22 +12,28 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-ConditionalJump::ConditionalJump(const Output<Node>& parent) : Op({parent}) {
+ConditionalJump::ConditionalJump(const Output<Node>& parent, const size_t iterations_count) :
+        Op({parent}),
+        iterations_count(iterations_count) {
     constructor_validate_and_infer_types();
 }
 
 void ConditionalJump::validate_and_infer_types() {
     set_output_size(2);
 
-    std::vector<ov::PartialShape> input_shapes = { get_input_partial_shape(0) };
-    set_output_type(0, get_input_element_type(0), input_shapes[0]);
-    set_output_type(1, get_input_element_type(0), input_shapes[0]);
+    const auto input_shape = get_input_partial_shape(0);
+    set_output_type(0, get_input_element_type(0), input_shape);
+
+    //auto output_shape = input_shape;
+    //// NCHW8C
+    //output_shape[1] = input_shape[1] * iterations_count;
+    set_output_type(1, get_input_element_type(0), input_shape);
 
     set_input_is_relevant_to_shape(0);
 }
 
 std::shared_ptr<Node> ConditionalJump::clone_with_new_inputs(const OutputVector& inputs) const {
-    return std::make_shared<ConditionalJump>(inputs[0]);
+    return std::make_shared<ConditionalJump>(inputs[0], iterations_count);
 }
 
 } // namespace op

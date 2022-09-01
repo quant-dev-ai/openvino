@@ -30,21 +30,8 @@ using namespace ngraph::snippets;
 #define CREATE_EMITTER(e_type) [this](const std::shared_ptr<ngraph::Node>& n) \
     -> std::shared_ptr<ngraph::snippets::Emitter> {return std::make_shared<e_type>(h.get(), isa, n);};
 
-class jit_snippet : public dnnl::impl::cpu::x64::jit_generator {
-public:
-    DECLARE_CPU_JIT_AUX_FUNCTIONS(jit_snippet)
-
-    ~jit_snippet() = default;
-
-    jit_snippet() : jit_generator() {
-    }
-
-    void generate() override {
-    }
-};
-
 ov::intel_cpu::CPUTargetMachine::CPUTargetMachine(dnnl::impl::cpu::x64::cpu_isa_t host_isa)
-    : TargetMachine(), h(new jit_snippet()), isa(host_isa) {
+    : TargetMachine(), h(new jit_snippets_generator()), isa(host_isa) {
     // data movement
     jitters[ngraph::opset1::Parameter::get_type_info_static()] = CREATE_EMITTER(NopEmitter);
     jitters[ngraph::snippets::op::BlockedParameter::get_type_info_static()] = CREATE_EMITTER(NopEmitter);

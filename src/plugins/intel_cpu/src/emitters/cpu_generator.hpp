@@ -8,6 +8,7 @@
 #include <cpu/x64/jit_generator.hpp>
 
 #include "snippets/generator.hpp"
+#include "jit_snippets_generator.hpp"
 
 namespace ov {
 namespace intel_cpu {
@@ -21,7 +22,7 @@ public:
     size_t get_lanes() const override;
 
 private:
-    std::unique_ptr<dnnl::impl::cpu::x64::jit_generator> h;
+    std::unique_ptr<jit_snippets_generator> h;
     dnnl::impl::cpu::x64::cpu_isa_t isa;
 };
 
