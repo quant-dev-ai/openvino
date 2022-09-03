@@ -44,7 +44,13 @@ template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void LoopEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
     insert_marker(MARKER_LOOP);
 
+    using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
+            Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
+
     auto h2 = static_cast<jit_snippets_generator*>(h);
+    // TODO: workaround: implement and remove
+    h2->uni_vmovups(Vmm(out[0]), Vmm(in[0]));
+
     const auto reg_index = static_cast<int>(h2->alloc_register(label_id));
     auto reg = Reg64(reg_index);
     h2->mov(reg, iterations_count);

@@ -7,6 +7,7 @@
 
 #include "snippets/pass/insert_load_store.hpp"
 #include "snippets/snippets_isa.hpp"
+#include "snippets/op/convolution_kernel.hpp"
 
 #include <ngraph/opsets/opset1.hpp>
 #include <ngraph/rt_info.hpp>
@@ -22,9 +23,11 @@ ngraph::snippets::pass::InsertLoad::InsertLoad() {
 
             const auto& inputs = root->get_output_target_inputs(0);
             if (inputs.size() == 1ul) {
-                const auto& input_node = inputs.begin()->get_node();
+                const auto input = inputs.begin();
+                const auto& input_node = input->get_node();
                 // TODO: workaround
                 if (is_type<opset1::MaxPool>(input_node)) {
+                //if (is_type<opset1::MaxPool>(input_node) || ((input->get_index() == 1ul) && (is_type<snippets::op::ConvolutionKernel>(input_node)))) {
                     return false;
                 }
             }

@@ -24,8 +24,30 @@ ConvolutionKernelEmitter::ConvolutionKernelEmitter(
 
     const auto& convolution = as_type_ptr<ngraph::snippets::op::ConvolutionKernel>(n);
     assert(convolution != nullptr);
-    //auto_pad = convolution->get_auto_pad();
-    weights_shape = convolution->get_input_node_shared_ptr(1)->get_shape();
+
+    const auto load = convolution->get_input_node_shared_ptr(1);
+    if (!is_type<ngraph::snippets::op::Load>(load)) {
+        throw ov::Exception("unexpected operation type on weights");
+    }
+
+    const auto weights = load->get_input_node_shared_ptr(0);
+    if (!is_type<ngraph::opset1::Parameter>(weights)) {
+        throw ov::Exception("unexpected operation type on weights");
+    }
+
+    weights_shape = weights->get_shape();
+
+    const auto& rt = weights->get_rt_info();
+    const auto it = rt.find("reginfo");
+    if (it == rt.end()) {
+        throw ov::Exception("reginfo is absent");
+    }
+
+    auto regs = it->second.as<std::vector<size_t>>();
+    if (regs.size() != 1ul) {
+        throw ov::Exception("registers count is not correct");
+    }
+    weights_reg_index = regs[0];
 }
 
 void ConvolutionKernelEmitter::emit_impl(const std::vector<size_t>& in,
@@ -47,34 +69,23 @@ void ConvolutionKernelEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    assert(in.size() == 2ul);
+    assert(out.size() == 1ul);
+
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 
-    //using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
-    //        Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
-    //
-    ////const auto offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
-    //
-    //Reg64 in_reg1(static_cast<int>(in[0]));
-    //Reg64 in_reg2(static_cast<int>(in[1]));
-    //
-    //Vmm data = Vmm(0);
-    //h->uni_vmovups(data, h->ptr[in_reg1]);
-    //
-    //Vmm weights = Vmm(1);
-    //h->uni_vmovups(weights, h->ptr[in_reg2]);
-    //
-    //Vmm output = Vmm(3);
-    //h->uni_vfmadd231ps(output, data, weights);
-    //
-    ////Vmm vmm1 = Vmm(1);
-    ////h->uni_vmovups(vmm1, h->ptr[in_reg1 + offset * weights_shape]);
-    //
-    ////Vmm vmm2 = Vmm(2);
-    ////h->uni_vmovups(vmm1, h->ptr[in_reg1 + offset]);
-    //
-    //
-    //h->add(in_reg1, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
-    //h->add(in_reg2, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+    using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
+            Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
+
+    //const auto offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+
+    Vmm data = Vmm(in[0]);
+    const auto weights_reg = Reg64(weights_reg_index);
+    Vmm weights = Vmm(in[1]);
+    h->uni_vmovups(weights, h->ptr[weights_reg]);
+
+    Vmm output = Vmm(out[0]);
+    h->uni_vfmadd231ps(output, data, weights);
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 }

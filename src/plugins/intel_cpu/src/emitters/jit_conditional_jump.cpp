@@ -52,11 +52,15 @@ void ConditionalJumpEmitter::emit_isa(const std::vector<size_t> &in, const std::
     assert(in.size() == 1ul);
     // TODO: we need only one output register
     assert(out.size() == 2ul);
-    assert(gpr.size() >= 1ul);
 
     insert_marker(MARKER_CONDITIONAL_JUMP);
 
+    using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
+            Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
+
     auto h2 = static_cast<jit_snippets_generator*>(h);
+    // TODO: workaround: implement and remove
+    h2->uni_vmovups(Vmm(out[1]), Vmm(in[0]));
 
     const auto reg_index = static_cast<int>(h2->get_register(label_id));
     const auto reg = Reg64(reg_index);

@@ -37,6 +37,7 @@ private:
 
     ov::op::PadType auto_pad;
     ov::Shape weights_shape;
+    int weights_reg_index;
 };
 }   // namespace intel_cpu
 }   // namespace ov
