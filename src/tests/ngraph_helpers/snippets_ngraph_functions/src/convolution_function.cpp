@@ -24,7 +24,7 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
     const auto parameter = std::make_shared<ngraph::opset1::Parameter>(inputType, inputShape);
     parameter->set_friendly_name("parameter");
 
-    const auto prerequisites = std::make_shared<ngraph::opset1::AvgPool>(
+    std::shared_ptr<Node> parent = std::make_shared<ngraph::opset1::AvgPool>(
             parameter,
             prerequisites_params.strides,
             prerequisites_params.pads_begin,
@@ -32,7 +32,7 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
             prerequisites_params.kernel,
             true,
             op::RoundingType::FLOOR);
-    prerequisites->set_friendly_name("prerequisites");
+    parent->set_friendly_name("prerequisites");
 
     const auto generate_values = [](const Shape& shape, const float begin_value) {
         std::vector<float> values;
@@ -46,8 +46,8 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
     const auto weights = ngraph::opset1::Constant::create(element::f32, weights_shape, generate_values(weights_shape, 10ul));
     weights->set_friendly_name("weights");
 
-    std::shared_ptr<Node> parent = std::make_shared<ngraph::opset1::Convolution>(
-        prerequisites,
+    parent = std::make_shared<ngraph::opset1::Convolution>(
+        parent,
         weights,
         convolution_params.strides,
         convolution_params.pads_begin,

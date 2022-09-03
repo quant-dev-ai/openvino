@@ -49,32 +49,32 @@ template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 
-    using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
-            Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
-
-    //const auto offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
-
-    Reg64 in_reg1(static_cast<int>(in[0]));
-    Reg64 in_reg2(static_cast<int>(in[1]));
-
-    Vmm data = Vmm(0);
-    h->uni_vmovups(data, h->ptr[in_reg1]);
-
-    Vmm weights = Vmm(1);
-    h->uni_vmovups(weights, h->ptr[in_reg2]);
-
-    Vmm output = Vmm(3);
-    h->uni_vfmadd231ps(output, data, weights);
-
-    //Vmm vmm1 = Vmm(1);
-    //h->uni_vmovups(vmm1, h->ptr[in_reg1 + offset * weights_shape]);
-
-    //Vmm vmm2 = Vmm(2);
-    //h->uni_vmovups(vmm1, h->ptr[in_reg1 + offset]);
-
-
-    h->add(in_reg1, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
-    h->add(in_reg2, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+    //using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
+    //        Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
+    //
+    ////const auto offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+    //
+    //Reg64 in_reg1(static_cast<int>(in[0]));
+    //Reg64 in_reg2(static_cast<int>(in[1]));
+    //
+    //Vmm data = Vmm(0);
+    //h->uni_vmovups(data, h->ptr[in_reg1]);
+    //
+    //Vmm weights = Vmm(1);
+    //h->uni_vmovups(weights, h->ptr[in_reg2]);
+    //
+    //Vmm output = Vmm(3);
+    //h->uni_vfmadd231ps(output, data, weights);
+    //
+    ////Vmm vmm1 = Vmm(1);
+    ////h->uni_vmovups(vmm1, h->ptr[in_reg1 + offset * weights_shape]);
+    //
+    ////Vmm vmm2 = Vmm(2);
+    ////h->uni_vmovups(vmm1, h->ptr[in_reg1 + offset]);
+    //
+    //
+    //h->add(in_reg1, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+    //h->add(in_reg2, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 }

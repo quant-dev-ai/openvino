@@ -74,7 +74,8 @@ ngraph::snippets::code ngraph::snippets::Generator::generate(std::shared_ptr<ov:
 
     OV_ITT_TASK_NEXT(GENERATE, "::ScalarTile_get")
     std::vector<AllocatedEmitter> scalar_lowered;
-    for (auto n : m_scalar->get_ordered_ops()) {
+    const auto& ordered_ops = m_scalar->get_ordered_ops();
+    for (auto n : ordered_ops) {
         scalar_lowered.emplace_back(std::make_pair(target->get(n->get_type_info())(n), ngraph::snippets::getRegisters(n)));
     }
     OV_ITT_TASK_NEXT(GENERATE, "::Tiles1D")

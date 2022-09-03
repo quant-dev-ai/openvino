@@ -260,10 +260,21 @@ std::vector<std::shared_ptr<Node>> topological_sort(T root_nodes) {
             size_t arg_count = node->get_input_size();
             for (size_t i = 0; i < arg_count; ++i) {
                 Node* dep = node->get_input_node_ptr(arg_count - i - 1);
-                if ((nodes_done.count(dep) == 0) && (dep_was_added.count({node, dep}) == 0)) {
-                    can_add = false;
-                    nodes_to_do.push(dep);
-                    dep_was_added.insert({node, dep});
+
+                auto get_order = [](const Node* node) {
+                    const auto& node_rt = node->get_rt_info();
+                    const auto node_it = node_rt.find("order");
+                    return node_it != node_rt.end() ? node_it->second.as<size_t>() : -1ul;
+                };
+
+                const auto node_order = get_order(node);
+                const auto dep_order = get_order(dep);
+                if ((node_order == -1ul) || (dep_order == -1ul) || (dep_order < node_order)) {
+                    if ((nodes_done.count(dep) == 0) && (dep_was_added.count({node, dep}) == 0)) {
+                        can_add = false;
+                        nodes_to_do.push(dep);
+                        dep_was_added.insert({node, dep});
+                    }
                 }
             }
             for (auto& depptr : node->get_control_dependencies()) {

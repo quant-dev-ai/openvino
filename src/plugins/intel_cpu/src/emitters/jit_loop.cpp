@@ -20,6 +20,7 @@ LoopEmitter::LoopEmitter(
         const std::shared_ptr<ov::Node>& n) : jit_emitter(h, isa, n) {
     const auto& loop = as_type_ptr<ngraph::snippets::op::Loop>(n);
     label_id = loop->get_instance_id();
+    iterations_count = loop->get_iterations_count();
 }
 
 void LoopEmitter::emit_impl(const std::vector<size_t>& in,
@@ -42,8 +43,14 @@ void LoopEmitter::emit_impl(const std::vector<size_t>& in,
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void LoopEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
     insert_marker(MARKER_LOOP);
+
+    auto h2 = static_cast<jit_snippets_generator*>(h);
+    const auto reg_index = static_cast<int>(h2->alloc_register(label_id));
+    auto reg = Reg64(reg_index);
+    h2->mov(reg, iterations_count);
     auto label = Xbyak::Label();
-    static_cast<jit_snippets_generator*>(h)->L(label, label_id);
+    h2->L(label, label_id);
+
     insert_marker(MARKER_LOOP);
 }
 

@@ -7,6 +7,7 @@
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
 #include <ngraph/opsets/opset1.hpp>
+#include "jit_snippets_generator.hpp"
 
 using namespace Xbyak;
 
@@ -136,10 +137,12 @@ void KernelEmitter::init_data_pointers(size_t num_inputs, size_t num_params,
         }
     };
     for (auto i = 0; i < num_params; i++) {
-        if (i < num_inputs)
-            h->mov(data_ptr_regs[i], h->ptr[reg_const_params + GET_OFF(src_ptrs) + i * sizeof(void*)]);
-        else
-            h->mov(data_ptr_regs[i], h->ptr[reg_const_params + GET_OFF(dst_ptrs) + (i - num_inputs) * sizeof(void*)]);
+        if (i < num_inputs) {
+            h->mov(data_ptr_regs[i], h->ptr[reg_const_params + GET_OFF(src_ptrs) + i * sizeof(void *)]);
+        } else {
+            assert(data_ptr_regs.size() > i);
+            h->mov(data_ptr_regs[i], h->ptr[reg_const_params + GET_OFF(dst_ptrs) + (i - num_inputs) * sizeof(void *)]);
+        }
         // we can use the last data_ptr_reg as tmp_reg until the last iteration, and reg_const_params then
         Reg64 reg_tmp = i < num_params-1 ? data_ptr_regs.back() : reg_const_params;
         init_ptrs_with_offsets(data_ptr_regs[i], &jcp.data_offsets[i * harness_num_dims], reg_tmp);
@@ -148,13 +151,16 @@ void KernelEmitter::init_data_pointers(size_t num_inputs, size_t num_params,
 void KernelEmitter::emit_impl(const std::vector<size_t>& in,
                               const std::vector<size_t>& out,
                               const std::vector<size_t>& allocated_vec_regs,
+
                               const std::vector<size_t>& allocated_gp_regs,
                               const ov::intel_cpu::emitter_context *emit_context) const {
+    insert_marker(MARKER_PREAMBLE_BEGIN);
     h->preamble();
+
+    insert_marker(MARKER_KERNEL);
 
     const size_t num_inputs = in[0];
     const size_t num_outputs = in[1];
-
     Reg64 reg_indexes = Reg64(dnnl::impl::cpu::x64::abi_param1.getIdx());
     Reg64 reg_const_params = Reg64(dnnl::impl::cpu::x64::abi_param2.getIdx());
     std::vector<Reg64> data_ptr_regs(gp_regs_used.size());
@@ -174,6 +180,9 @@ void KernelEmitter::emit_impl(const std::vector<size_t>& in,
             out_regs = gp_regs_used;
         emitter->emit_code(in_regs, out_regs, vec_regs_pool, local_gpr_pool);
     }
+
+    insert_marker(MARKER_KERNEL);
+
     h->postamble();
 }
 
@@ -200,8 +209,9 @@ void TileSchedulerEmitter::validate_arguments(const std::vector<size_t> &in,
                                      const std::vector<size_t> &gpr) const {
     if (in.size() != 3)
         IE_THROW() << "TileSchedulerEmitter got invalid number of inputs. Expected 3, got " << in.size();
-    if (out.size() != in[0] + in[1])
-        IE_THROW() << "TileSchedulerEmitter got invalid number of outputs. Expected " << in[0] + in[1] << " , got " << out.size();
+    // TODO: different input & output channels
+    //if (out.size() != in[0] + in[1])
+    //    IE_THROW() << "TileSchedulerEmitter got invalid number of outputs. Expected " << in[0] + in[1] << " , got " << out.size();
     if (body.size() != 2)
         IE_THROW() << "TileSchedulerEmitter got invalid body size, expected 2 (vector & scalar TileEmitter), got " << body.size();
     if (!(std::dynamic_pointer_cast<TileEmitter>(body[0].first) && std::dynamic_pointer_cast<TileEmitter>(body[1].first)))
@@ -220,8 +230,9 @@ void TileSchedulerEmitter::emit_tiles(const Reg64& reg_inner_amount, size_t vect
         [&](const bool evaluate_once, const std::vector<AllocatedEmitter>& body, const AllocatedEmitter& tile) {
             // If Tile is evaluated only once, then we can emit its body directly and skip work_amount decrements and checks
             if (evaluate_once) {
-                for (auto& code : body)
+                for (auto& code : body) {
                     code.first->emit_code(code.second.first, code.second.second, vec_pool, gpr_pool);
+                }
             } else {
                 std::vector<size_t> in_regs, out_regs;
                 std::tie(in_regs, out_regs) = tile.second;
@@ -275,6 +286,10 @@ void TileSchedulerEmitter::emit_impl(const std::vector<size_t>& in,
     local_gpr_pool.pop_back();
     Reg64 reg_inner_amount = Reg64(static_cast<int>(local_gpr_pool.back()));
     local_gpr_pool.pop_back();
+
+    auto h2 = static_cast<jit_snippets_generator*>(h);
+    h2->init_registers(local_gpr_pool);
+
     Label for_body;
     const size_t outer_work_amount = jcp.scheduler_dims[0];
     if (outer_work_amount == 1) {

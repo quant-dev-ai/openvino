@@ -71,8 +71,17 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         }
 
         const auto parent = convolution->get_input_node_shared_ptr(0);
-        const auto loop = std::make_shared<snippets::op::Loop>(parent, parent);
+        // TODO: NCHW
+        // TODO: static
+        const auto input_shape = convolution->get_input_shape(0);
+        const auto output_shape = convolution->output(0).get_shape();
+        // TODO: temporary assert
+        assert(output_shape[1] % input_shape[1] == 0);
+        const size_t iterations_count = output_shape[1] / input_shape[1];
+
+        const auto loop = std::make_shared<snippets::op::Loop>(parent, parent, iterations_count);
         loop->set_friendly_name(convolution->get_friendly_name() + "_loop");
+        loop->get_rt_info()["order"] = 0ul;
 
         const auto convolution_kernel = std::make_shared<snippets::op::ConvolutionKernel>(loop, convolution->get_input_node_shared_ptr(1));
         ngraph::copy_runtime_info(convolution, convolution_kernel);
@@ -95,31 +104,24 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
 
         auto first = nodes[0];
         auto last = nodes.back();
+        const auto child_input = *last->output(0).get_target_inputs().begin();
+        // TODO: to debug only
+        assert(is_type<opset1::Result>(child_input.get_node()));
 
         first->input(0).replace_source_output(convolution_kernel->output(0));
 
 
-        // TODO: NCHW
-        // TODO: static
-        const auto input_shape = convolution->get_input_shape(0);
-        const auto output_shape = convolution->output(0).get_shape();
-        // TODO: temporary assert
-        assert(output_shape[1] % input_shape[1] == 0);
-        const size_t iterations_count = output_shape[1] / input_shape[1];
 
-
-        const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(last, iterations_count);
+        const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(last);
         ngraph::copy_runtime_info(convolution, conditional_jump);
         conditional_jump->set_friendly_name(convolution->get_friendly_name() + "_jump");
+        conditional_jump->get_rt_info()["order"] = 1ul;
 
         loop->input(1).replace_source_output(conditional_jump->output(0));
 
         convolution->clear_control_dependents();
         convolution->clear_control_dependencies();
 
-        const auto child_input = *last->output(0).get_target_inputs().begin();
-        // TODO: to debug only
-        assert(is_type<opset1::Result>(child_input.get_node()));
         child_input.replace_source_output(conditional_jump->output(1));
 
 

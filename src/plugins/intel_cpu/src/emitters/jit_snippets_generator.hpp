@@ -14,25 +14,6 @@ namespace intel_cpu {
 
 class jit_snippets_generator : public dnnl::impl::cpu::x64::jit_generator {
 public:
-    // TODO: Xbyak::LabelManager - can we use it?
-    //class LabelManager {
-    //public:
-    //    void add(const std::string& name, const Xbyak::Label& label) {
-    //        auto res = labels.emplace(name, label);
-    //        if (res.second) {
-    //            throw ov::Exception("label with name already exists");
-    //        }
-    //    }
-    //    Xbyak::Label get(const std::string& name) {
-    //        auto it = labels.find(name);
-    //        if (it == labels.end()) {
-    //            return Xbyak::Label();
-    //        }
-    //        return it->second;
-    //    }
-    //private:
-    //    std::unordered_map<std::string, Xbyak::Label> labels;
-    //};
     DECLARE_CPU_JIT_AUX_FUNCTIONS(jit_snippet)
 
     ~jit_snippets_generator() = default;
@@ -45,24 +26,85 @@ public:
 
     // TODO: Xbyak::LabelManager - can we use it?
     void L(Xbyak::Label &label, const size_t id) {
-        auto res = labels.emplace(id, label);
-        if (res.second) {
+        auto it = labels.find(id);
+        if (it != labels.end()) {
             throw ov::Exception("label with name already exists");
         }
+
+        // label is initialized here
         dnnl::impl::cpu::x64::jit_generator::L(label);
+
+        // store initialized label
+        auto res = labels.emplace(id, label);
+        if (!res.second) {
+            throw ov::Exception("label with name already exists");
+        }
     }
 
     Xbyak::Label get_label(const size_t id) {
         auto it = labels.find(id);
         if (it == labels.end()) {
-            return Xbyak::Label();
+            throw ov::Exception("label is absent");
         }
         return it->second;
+    }
+
+    void init_registers(const std::vector<size_t>& regs) {
+        if (!free_registers.empty()) {
+            throw ov::Exception("registers are not empty");
+        }
+        if (!allocated_named_registers.empty()) {
+            throw ov::Exception("allocated registers are not empty");
+        }
+        std::copy(regs.begin(), regs.end(), inserter(free_registers, free_registers.begin()));
+    }
+
+    int alloc_register(const size_t unique_key = -1ul) {
+        if (free_registers.size() == 0ul) {
+            throw ov::Exception("not enough registers");
+        }
+        if ((unique_key != -1ul) && (allocated_named_registers.find(unique_key) != allocated_named_registers.end())) {
+            throw ov::Exception("register with name '" + std::to_string(unique_key) + "' has been allocated already");
+        }
+
+        auto reg_it = free_registers.begin();
+        free_registers.erase(reg_it);
+
+        auto reg = *reg_it;
+        if (unique_key != -1ul) {
+            allocated_named_registers.emplace(unique_key, reg);
+        }
+        return reg;
+    }
+
+    int get_register(const size_t unique_key) {
+        auto reg_it = allocated_named_registers.find(unique_key);
+        if (reg_it == allocated_named_registers.end()) {
+            throw ov::Exception("register with name '" + std::to_string(unique_key) + "' was not found");
+        }
+        return reg_it->second;
+    }
+
+    void free_register(int reg) {
+        if (free_registers.find(reg) != free_registers.end()) {
+            throw ov::Exception("register was not allocated");
+        }
+        free_registers.insert(reg);
+
+        for (auto it = allocated_named_registers.begin(); it != allocated_named_registers.end(); ++it) {
+            if (it->second == reg) {
+                allocated_named_registers.erase(it);
+                break;
+            }
+        }
     }
 
 private:
     //LabelManager label_manager;
     std::unordered_map<size_t, Xbyak::Label> labels;
+
+    std::set<int> free_registers;
+    std::unordered_map<size_t, int> allocated_named_registers;
 };
 
 }   // namespace intel_cpu

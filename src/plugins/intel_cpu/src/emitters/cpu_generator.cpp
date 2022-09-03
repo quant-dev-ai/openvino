@@ -137,7 +137,8 @@ bool ov::intel_cpu::CPUTargetMachine::is_supported() const {
 }
 
 code ov::intel_cpu::CPUTargetMachine::get_snippet() const {
-    h->create_kernel();
+    auto result = h->create_kernel();
+    assert(result == dnnl::impl::status::success);
     return h->jit_ker();
 }
 

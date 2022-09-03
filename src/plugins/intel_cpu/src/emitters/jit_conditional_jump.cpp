@@ -20,12 +20,13 @@ ConditionalJumpEmitter::ConditionalJumpEmitter(
         dnnl::impl::cpu::x64::cpu_isa_t isa,
         const std::shared_ptr<ov::Node>& n) : jit_emitter(h, isa, n) {
     const auto& conditional_jump = as_type_ptr<ngraph::snippets::op::ConditionalJump>(n);
-    iterations_count = conditional_jump->get_iterations_count();
-
+    //iterations_count = conditional_jump->get_iterations_count();
     assert(conditional_jump->output(0).get_target_inputs().size() == 1ul);
+
     const auto loop = ngraph::as_type_ptr<ngraph::snippets::op::Loop>(
             (*conditional_jump->output(0).get_target_inputs().begin()).get_node()->shared_from_this());
     assert(loop != nullptr);
+    iterations_count = loop->get_iterations_count();
     label_id = loop->get_instance_id();
 }
 
@@ -48,18 +49,24 @@ void ConditionalJumpEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ConditionalJumpEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out, const std::vector<size_t>& gpr) const {
+    assert(in.size() == 1ul);
+    // TODO: we need only one output register
+    assert(out.size() == 2ul);
+    assert(gpr.size() >= 1ul);
+
     insert_marker(MARKER_CONDITIONAL_JUMP);
 
-    using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
-            Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
+    auto h2 = static_cast<jit_snippets_generator*>(h);
 
-    auto label = static_cast<jit_snippets_generator*>(h)->get_label(label_id);
+    const auto reg_index = static_cast<int>(h2->get_register(label_id));
+    const auto reg = Reg64(reg_index);
+    h->sub(reg, 1);
+    h->cmp(reg, 1);
 
-    Reg64 iteration_reg = Reg64(static_cast<int>(gpr.back()));
-
-    h->sub(iteration_reg, 1);
-    h->cmp(iteration_reg, 1);
+    const auto label = h2->get_label(label_id);
     h->jge(label, CodeGenerator::T_NEAR);
+
+    h2->free_register(reg_index);
 
     insert_marker(MARKER_CONDITIONAL_JUMP);
 }

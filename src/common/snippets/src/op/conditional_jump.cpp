@@ -12,9 +12,7 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-ConditionalJump::ConditionalJump(const Output<Node>& parent, const size_t iterations_count) :
-        Op({parent}),
-        iterations_count(iterations_count) {
+ConditionalJump::ConditionalJump(const Output<Node>& parent) : Op({parent}) {
     constructor_validate_and_infer_types();
 }
 
@@ -33,7 +31,7 @@ void ConditionalJump::validate_and_infer_types() {
 }
 
 std::shared_ptr<Node> ConditionalJump::clone_with_new_inputs(const OutputVector& inputs) const {
-    return std::make_shared<ConditionalJump>(inputs[0], iterations_count);
+    return std::make_shared<ConditionalJump>(inputs[0]/*, iterations_count*/);
 }
 
 } // namespace op

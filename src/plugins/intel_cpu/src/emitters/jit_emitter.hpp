@@ -20,7 +20,7 @@ enum emitter_in_out_map {
     vec_to_vec,
     vec_to_gpr,
     gpr_to_vec,
-    gpr_to_gpr,
+    gpr_to_gpr
 };
 
 struct emitter_context {
@@ -39,6 +39,7 @@ struct emitter_context {
 #define MARKER_LOOP 9
 #define MARKER_CONVOLUTION_KERNEL 10
 #define MARKER_CONDITIONAL_JUMP 11
+#define MARKER_KERNEL 11
 
 class jit_emitter : public ngraph::snippets::Emitter {
 public:

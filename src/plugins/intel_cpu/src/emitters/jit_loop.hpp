@@ -32,6 +32,7 @@ private:
 
 private:
     size_t label_id;
+    size_t iterations_count;
 };
 }   // namespace intel_cpu
 }   // namespace ov

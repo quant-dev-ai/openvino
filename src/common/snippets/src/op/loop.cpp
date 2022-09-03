@@ -12,7 +12,9 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-Loop::Loop(const Output<Node>& parent, const Output<Node>& jump) : Op({ parent, jump }) {
+Loop::Loop(const Output<Node>& parent, const Output<Node>& jump, const size_t iterations_count) :
+        Op({ parent, jump }),
+        iterations_count(iterations_count) {
     constructor_validate_and_infer_types();
 }
 
@@ -21,7 +23,7 @@ void Loop::validate_and_infer_types() {
 }
 
 std::shared_ptr<Node> Loop::clone_with_new_inputs(const OutputVector& inputs) const {
-    return std::make_shared<Loop>(inputs[0], inputs[1]);
+    return std::make_shared<Loop>(inputs[0], inputs[1], iterations_count);
 }
 
 } // namespace op

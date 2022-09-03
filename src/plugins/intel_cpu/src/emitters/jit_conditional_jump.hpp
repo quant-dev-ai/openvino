@@ -34,8 +34,8 @@ private:
     template <dnnl::impl::cpu::x64::cpu_isa_t isa>
     void emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out, const std::vector<size_t>& gpr) const;
 
-    size_t iterations_count;
     size_t label_id;
+    size_t iterations_count;
 };
 }   // namespace intel_cpu
 }   // namespace ov
