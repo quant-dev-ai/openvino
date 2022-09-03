@@ -532,6 +532,7 @@ LoadEmitter::LoadEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu
                          const std::shared_ptr<ov::Node>& n)
                          : MemoryEmitter(h, isa, n), shouldPostIncrement(*n->get_input_shape(0).rbegin() != 1) {
     in_out_type_ = emitter_in_out_map::gpr_to_vec;
+    empty = as_type_ptr<ngraph::snippets::op::Load>(n)->get_empty();
 }
 
 void LoadEmitter::emit_impl(const std::vector<size_t>& in,
@@ -554,6 +555,11 @@ void LoadEmitter::emit_impl(const std::vector<size_t>& in,
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void LoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
     insert_marker(MARKER_LOAD);
+
+    if (empty) {
+        insert_marker(MARKER_LOAD);
+        return;
+    }
 
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;

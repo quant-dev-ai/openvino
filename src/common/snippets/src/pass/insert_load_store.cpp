@@ -41,7 +41,13 @@ ngraph::snippets::pass::InsertLoad::InsertLoad() {
                 }
             }
 
-            auto load = std::make_shared<ngraph::snippets::op::Load> (root);
+            // TODO: workaround for ConvolutionKernel weights support
+            assert(root->get_output_size() == 1ul);
+            assert(root->output(0).get_target_inputs().size() == 1ul);
+            const auto child_input = *root->output(0).get_target_inputs().begin();
+            const bool empty = (child_input.get_index() == 1ul) && (is_type<ngraph::opset1::Convolution>(child_input.get_node()));
+
+            auto load = std::make_shared<ngraph::snippets::op::Load>(root, empty);
             ngraph::copy_runtime_info(root, load);
 
             bool rewritten = false;

@@ -23,7 +23,8 @@ class Load : public ngraph::op::Op {
 public:
     OPENVINO_OP("Load", "SnippetsOpset");
 
-    Load(const Output<Node>& x);
+    // TODO: empty - workaround: need Load only for register (need to update AssignRegister)
+    Load(const Output<Node>& x, const bool empty = false);
     Load() = default;
 
     bool visit_attributes(AttributeVisitor& visitor) override;
@@ -35,6 +36,10 @@ public:
     OPENVINO_SUPPRESS_DEPRECATED_START
     bool evaluate(const HostTensorVector& output_values, const HostTensorVector& input_values) const override;
     OPENVINO_SUPPRESS_DEPRECATED_END
+
+    bool get_empty() const { return empty; }
+private:
+    bool empty;
 };
 
 } // namespace op

@@ -293,6 +293,7 @@ private:
 
 private:
     bool shouldPostIncrement;
+    bool empty;
 };
 
 class BroadcastLoadEmitter : public MemoryEmitter {

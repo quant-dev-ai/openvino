@@ -11,7 +11,7 @@
 using namespace std;
 using namespace ngraph;
 
-snippets::op::Load::Load(const Output<Node>& x) : Op({x}) {
+snippets::op::Load::Load(const Output<Node>& x, const bool empty) : Op({x}), empty(empty) {
     constructor_validate_and_infer_types();
 }
 
