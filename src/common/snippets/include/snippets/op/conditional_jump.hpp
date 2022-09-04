@@ -17,6 +17,9 @@ public:
     OPENVINO_OP("ConditionalJump", "SnippetsOpset");
 
     ConditionalJump(const Output<Node>& parent/*, const size_t iterations_count*/);
+
+    bool visit_attributes(AttributeVisitor& visitor) override { return true; }
+
     void validate_and_infer_types() override;
     std::shared_ptr<Node> clone_with_new_inputs(const OutputVector& inputs) const override;
 

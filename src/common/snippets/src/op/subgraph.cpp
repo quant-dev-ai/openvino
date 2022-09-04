@@ -274,6 +274,7 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     manager.run_passes(m_body);
 
     ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.2.svg").run_on_model(m_body);
+    ov::pass::Serialize("svg/snippets.convert_to_snippet_dialect.2.xml", "svg/snippets.convert_to_snippet_dialect.2.bin").run_on_model(m_body);
 
     {
         // TODO: use the the same manager
@@ -284,6 +285,7 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     }
 
     ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.3.svg").run_on_model(m_body);
+    ov::pass::Serialize("svg/snippets.convert_to_snippet_dialect.3.xml", "svg/snippets.convert_to_snippet_dialect.3.bin").run_on_model(m_body);
 }
 
 snippets::Schedule snippets::op::Subgraph::generate(const BlockedShapeVector& output_shapes,

@@ -49,7 +49,10 @@ void ConditionalJumpEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ConditionalJumpEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out, const std::vector<size_t>& gpr) const {
-    assert(in.size() == 1ul);
+    //assert(in.size() == 1ul);
+    if (in.size() != 1ul) {
+        std::cout << "ConditionalJumpEmitter::emit_isa: why I have two inputs" << std::endl;
+    }
     // TODO: we need only one output register
     assert(out.size() == 2ul);
 

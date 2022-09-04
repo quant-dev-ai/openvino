@@ -54,7 +54,8 @@ ngraph::snippets::code ngraph::snippets::Generator::generate(std::shared_ptr<ov:
     OV_ITT_TASK_CHAIN(GENERATE, ngraph::pass::itt::domains::SnippetsTransform, "Snippets::Generator", "::VectorTile")
     // vector tile
     std::vector<AllocatedEmitter> lowered;
-    for (auto n : m->get_ordered_ops()) {
+    auto ordered_ops = m->get_ordered_ops();
+    for (auto n : ordered_ops) {
         lowered.emplace_back(std::make_pair(target->get(n->get_type_info())(n), ngraph::snippets::getRegisters(n)));
     }
     OV_ITT_TASK_NEXT(GENERATE, "::ScalarTile")
@@ -74,8 +75,8 @@ ngraph::snippets::code ngraph::snippets::Generator::generate(std::shared_ptr<ov:
 
     OV_ITT_TASK_NEXT(GENERATE, "::ScalarTile_get")
     std::vector<AllocatedEmitter> scalar_lowered;
-    const auto& ordered_ops = m_scalar->get_ordered_ops();
-    for (auto n : ordered_ops) {
+    const auto& ordered_ops2 = m_scalar->get_ordered_ops();
+    for (auto n : ordered_ops2) {
         scalar_lowered.emplace_back(std::make_pair(target->get(n->get_type_info())(n), ngraph::snippets::getRegisters(n)));
     }
     OV_ITT_TASK_NEXT(GENERATE, "::Tiles1D")

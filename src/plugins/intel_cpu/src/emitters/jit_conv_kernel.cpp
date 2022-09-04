@@ -83,6 +83,9 @@ void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std
     const auto weights_reg = Reg64(weights_reg_index);
     Vmm weights = Vmm(in[1]);
     h->uni_vmovups(weights, h->ptr[weights_reg]);
+    // TODO: just to debug
+    h->uni_vmovups(weights, h->ptr[weights_reg + 8 * 4]);
+    h->uni_vmovups(weights, h->ptr[weights_reg + 8 * 4 * 2]);
 
     Vmm output = Vmm(out[0]);
     h->uni_vfmadd231ps(output, data, weights);
