@@ -16,10 +16,9 @@ using ngraph::snippets::AllocatedEmitter;
 namespace ov {
 namespace intel_cpu {
 
-// TODO: move loop logic to new LoopBegin
-class ConditionalJumpEmitter : public jit_emitter {
+class LabelEmitter : public jit_emitter {
 public:
-    ConditionalJumpEmitter(
+    LabelEmitter(
             jit_snippets_generator* h,
             dnnl::impl::cpu::x64::cpu_isa_t isa,
             const std::shared_ptr<ov::Node>& n);
@@ -35,9 +34,7 @@ private:
     template <dnnl::impl::cpu::x64::cpu_isa_t isa>
     void emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out, const std::vector<size_t>& gpr) const;
 
-    std::vector<size_t> label_ids;
-    size_t register_id;
-    size_t iterations_count;
+    size_t label_id;
 };
 }   // namespace intel_cpu
 }   // namespace ov

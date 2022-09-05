@@ -70,7 +70,10 @@ void ConvolutionKernelEmitter::emit_impl(const std::vector<size_t>& in,
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
     assert(in.size() == 2ul);
-    assert(out.size() == 1ul);
+    //assert(out.size() == 1ul);
+    if (out.size() != 1ul) {
+        std::cout << "ConvolutionKernelEmitter::emit_isa: why we have more outputs?" << std::endl;
+    }
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 
@@ -83,12 +86,11 @@ void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std
     const auto weights_reg = Reg64(weights_reg_index);
     Vmm weights = Vmm(in[1]);
     h->uni_vmovups(weights, h->ptr[weights_reg]);
-    // TODO: just to debug
-    h->uni_vmovups(weights, h->ptr[weights_reg + 8 * 4]);
-    h->uni_vmovups(weights, h->ptr[weights_reg + 8 * 4 * 2]);
 
     Vmm output = Vmm(out[0]);
     h->uni_vfmadd231ps(output, data, weights);
+
+    h->add(weights_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 }

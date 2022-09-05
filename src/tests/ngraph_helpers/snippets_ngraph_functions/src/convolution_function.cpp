@@ -43,8 +43,8 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
         return values;
     };
 
-    //const auto weights = ngraph::opset1::Constant::create(element::f32, weights_shape, generate_values(weights_shape, 10ul));
-    const auto weights = ngraph::opset1::Constant::create(element::f32, Shape{1, 96, 16, 1}, generate_values(weights_shape, 10ul));
+    const auto weights = ngraph::opset1::Constant::create(element::f32, weights_shape, generate_values(weights_shape, 10ul));
+    //const auto weights = ngraph::opset1::Constant::create(element::f32, Shape{1, 96, 16, 1}, generate_values(weights_shape, 10ul));
     weights->set_friendly_name("weights");
 
     parent = std::make_shared<ngraph::opset1::Convolution>(

@@ -12,11 +12,11 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-class ConditionalJump : public ngraph::op::Op {
+class Label : public ngraph::op::Op {
 public:
-    OPENVINO_OP("ConditionalJump", "SnippetsOpset");
+    OPENVINO_OP("Label", "SnippetsOpset");
 
-    ConditionalJump(const std::vector<Output<Node>>& inputs);
+    Label(const std::vector<Output<Node>>& inputs);
 
     bool visit_attributes(AttributeVisitor& visitor) override { return true; }
 

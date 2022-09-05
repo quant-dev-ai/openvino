@@ -25,29 +25,55 @@ public:
     }
 
     // TODO: Xbyak::LabelManager - can we use it?
-    void L(Xbyak::Label &label, const size_t id) {
+    void L(std::shared_ptr<Xbyak::Label>& label, const size_t id) {
+        //auto it = labels.find(id);
+        //if (it != labels.end()) {
+        //    throw ov::Exception("label with name already exists");
+        //}
+
+        if (exists_label(id)) {
+            throw ov::Exception("label with name already exists");
+        }
+
+        // label is initialized here
+        dnnl::impl::cpu::x64::jit_generator::L(*label);
+
+        //// store initialized label
+        //auto res = labels.emplace(id, label);
+        //if (!res.second) {
+        //    throw ov::Exception("label with name already exists");
+        //}
+
+        add_label(id, label);
+    }
+
+    void add_label(const size_t id, std::shared_ptr<Xbyak::Label>& label) {
         auto it = labels.find(id);
         if (it != labels.end()) {
             throw ov::Exception("label with name already exists");
         }
 
-        // label is initialized here
-        dnnl::impl::cpu::x64::jit_generator::L(label);
-
-        // store initialized label
+        // store initialized label <= ?
         auto res = labels.emplace(id, label);
         if (!res.second) {
             throw ov::Exception("label with name already exists");
         }
     }
 
-    Xbyak::Label get_label(const size_t id) {
+    bool exists_label(const size_t id) {
+        auto it = labels.find(id);
+        return it != labels.end();
+    }
+
+    std::shared_ptr<Xbyak::Label> get_label(const size_t id) {
         auto it = labels.find(id);
         if (it == labels.end()) {
             throw ov::Exception("label is absent");
         }
         return it->second;
     }
+
+    // TODO: free_label?
 
     void init_registers(const std::vector<size_t>& regs) {
         if (!free_registers.empty()) {
@@ -101,7 +127,7 @@ public:
 
 private:
     //LabelManager label_manager;
-    std::unordered_map<size_t, Xbyak::Label> labels;
+    std::unordered_map<size_t, std::shared_ptr<Xbyak::Label>> labels;
 
     std::set<int> free_registers;
     std::unordered_map<size_t, int> allocated_named_registers;

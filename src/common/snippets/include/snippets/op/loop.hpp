@@ -17,7 +17,7 @@ public:
 
     Loop(const Output<Node>& parent, const Output<Node>& jump, const size_t iterations_count);
 
-    bool visit_attributes(AttributeVisitor& visitor) override { return true; }
+    bool visit_attributes(AttributeVisitor& visitor) override;
     void validate_and_infer_types() override;
     std::shared_ptr<Node> clone_with_new_inputs(const OutputVector& inputs) const override;
 

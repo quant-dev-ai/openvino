@@ -8,6 +8,7 @@
 #include <ngraph/variant.hpp>
 #include <ngraph/opsets/opset1.hpp>
 #include "snippets/op/conditional_jump.hpp"
+#include "snippets/op/label.hpp"
 #include "snippets/op/loop.hpp"
 
 using namespace Xbyak;
@@ -23,11 +24,31 @@ ConditionalJumpEmitter::ConditionalJumpEmitter(
     //iterations_count = conditional_jump->get_iterations_count();
     assert(conditional_jump->output(0).get_target_inputs().size() == 1ul);
 
+    label_ids = std::vector<size_t>(conditional_jump->get_output_size(), 0ul);
+
     const auto loop = ngraph::as_type_ptr<ngraph::snippets::op::Loop>(
             (*conditional_jump->output(0).get_target_inputs().begin()).get_node()->shared_from_this());
-    assert(loop != nullptr);
-    iterations_count = loop->get_iterations_count();
-    label_id = loop->get_instance_id();
+    if (loop != nullptr) {
+        assert(loop != nullptr);
+        iterations_count = loop->get_iterations_count();
+        label_ids[0] = loop->get_instance_id();
+    } else {
+        // TODO: workaround
+        iterations_count = 1ul;
+
+        // TODO: workaround
+        auto loop = as_type_ptr<ngraph::snippets::op::Loop>(conditional_jump->get_input_node_shared_ptr(0)->get_input_node_shared_ptr(0));
+        assert(loop);
+        register_id = loop->get_instance_id();
+
+        // TODO: workaround
+        const auto label0 = ngraph::as_type_ptr<ngraph::snippets::op::Label>(
+                (*conditional_jump->output(0).get_target_inputs().begin()).get_node()->shared_from_this());
+        label_ids[0] = label0->get_instance_id();
+        const auto label1 = ngraph::as_type_ptr<ngraph::snippets::op::Label>(
+                (*conditional_jump->output(1).get_target_inputs().begin()).get_node()->shared_from_this());
+        label_ids[1] = label1->get_instance_id();
+    }
 }
 
 void ConditionalJumpEmitter::emit_impl(const std::vector<size_t>& in,
@@ -65,15 +86,30 @@ void ConditionalJumpEmitter::emit_isa(const std::vector<size_t> &in, const std::
     // TODO: workaround: implement and remove
     h2->uni_vmovups(Vmm(out[1]), Vmm(in[0]));
 
-    const auto reg_index = static_cast<int>(h2->get_register(label_id));
-    const auto reg = Reg64(reg_index);
-    h->sub(reg, 1);
-    h->cmp(reg, 1);
+    if (h2->exists_label(label_ids[0])) {
+        // TODO: simplify: move register management to loops
+        const auto reg_index = static_cast<int>(h2->get_register(label_ids[0]));
+        const auto reg = Reg64(reg_index);
+        h->sub(reg, 1);
+        h->cmp(reg, 1);
 
-    const auto label = h2->get_label(label_id);
-    h->jge(label, CodeGenerator::T_NEAR);
+        const auto label = h2->get_label(label_ids[0]);
+        h->jge(*label, CodeGenerator::T_NEAR);
 
-    h2->free_register(reg_index);
+        h2->free_register(reg_index);
+    } else {
+        const auto reg_index = static_cast<int>(h2->get_register(register_id));
+        const auto reg = Reg64(reg_index);
+        h->cmp(reg, 1);
+
+        std::shared_ptr<Xbyak::Label> label0 = std::make_shared<Xbyak::Label>();
+        h2->add_label(label_ids[0], label0);
+        h->jge(*label0, CodeGenerator::T_NEAR);
+
+        std::shared_ptr<Xbyak::Label> label1 = std::make_shared<Xbyak::Label>();
+        h2->add_label(label_ids[1], label1);
+        h->jl(*label1, CodeGenerator::T_NEAR);
+    }
 
     insert_marker(MARKER_CONDITIONAL_JUMP);
 }

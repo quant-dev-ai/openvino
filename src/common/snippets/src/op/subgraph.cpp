@@ -284,6 +284,9 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
         manager.run_passes(m_body);
     }
 
+    // TODO: for quick check
+    assert(m_body->get_ordered_ops().size() >= 15ul);
+
     ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.3.svg").run_on_model(m_body);
     ov::pass::Serialize("svg/snippets.convert_to_snippet_dialect.3.xml", "svg/snippets.convert_to_snippet_dialect.3.bin").run_on_model(m_body);
 }

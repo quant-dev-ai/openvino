@@ -18,6 +18,11 @@ Loop::Loop(const Output<Node>& parent, const Output<Node>& jump, const size_t it
     constructor_validate_and_infer_types();
 }
 
+bool Loop::visit_attributes(AttributeVisitor& visitor) {
+    visitor.on_attribute("iterations_count", iterations_count);
+    return true;
+}
+
 void Loop::validate_and_infer_types() {
     set_output_type(0, get_input_element_type(0), get_input_partial_shape(0));
 }

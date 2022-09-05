@@ -17,9 +17,12 @@ ConvolutionKernel::ConvolutionKernel(const Output<Node>& parent, const Output<No
 }
 
 void ConvolutionKernel::validate_and_infer_types() {
+    set_output_size(2);
+
     // TODO: will be implemented later
     auto input_shape = get_input_partial_shape(0);
     set_output_type(0, get_input_element_type(0), {1, 12, 112, 112, 8});
+    set_output_type(1, get_input_element_type(0), {1, 12, 112, 112, 8});
 }
 
 std::shared_ptr<Node> ConvolutionKernel::clone_with_new_inputs(const OutputVector& inputs) const {

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "snippets/op/conditional_jump.hpp"
+#include "snippets/op/label.hpp"
 #include "snippets/generator.hpp"
 
 using namespace std;
@@ -12,11 +12,11 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-ConditionalJump::ConditionalJump(const std::vector<Output<Node>>& inputs) : Op(inputs) {
+Label::Label(const std::vector<Output<Node>>& inputs) : Op(inputs) {
     constructor_validate_and_infer_types();
 }
 
-void ConditionalJump::validate_and_infer_types() {
+void Label::validate_and_infer_types() {
     set_output_size(2);
 
     const auto input_shape = get_input_partial_shape(0);
@@ -30,8 +30,8 @@ void ConditionalJump::validate_and_infer_types() {
     set_input_is_relevant_to_shape(0);
 }
 
-std::shared_ptr<Node> ConditionalJump::clone_with_new_inputs(const OutputVector& inputs) const {
-    return std::make_shared<ConditionalJump>(inputs/*, iterations_count*/);
+std::shared_ptr<Node> Label::clone_with_new_inputs(const OutputVector& inputs) const {
+    return std::make_shared<Label>(inputs);
 }
 
 } // namespace op

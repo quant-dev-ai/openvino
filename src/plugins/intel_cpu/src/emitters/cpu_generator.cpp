@@ -12,10 +12,12 @@
 
 #include "snippets/op/conditional_jump.hpp"
 #include "snippets/op/convolution_kernel.hpp"
+#include "snippets/op/label.hpp"
 #include "snippets/op/loop.hpp"
 
 #include "jit_conditional_jump.hpp"
 #include "jit_conv_kernel.hpp"
+#include "jit_label.hpp"
 #include "jit_loop.hpp"
 #include "jit_snippets_emitters.hpp"
 #include "jit_eltwise_emitters.hpp"
@@ -61,6 +63,8 @@ ov::intel_cpu::CPUTargetMachine::CPUTargetMachine(dnnl::impl::cpu::x64::cpu_isa_
 
     jitters[ngraph::snippets::op::ConditionalJump::get_type_info_static()] = CREATE_EMITTER(ConditionalJumpEmitter);
     jitters[ngraph::snippets::op::Loop::get_type_info_static()] = CREATE_EMITTER(LoopEmitter);
+
+    jitters[ngraph::snippets::op::Label::get_type_info_static()] = CREATE_EMITTER(LabelEmitter);
 
     // binary
     jitters[ngraph::opset1::Add::get_type_info_static()] = CREATE_EMITTER(ov::intel_cpu::jit_add_emitter);
