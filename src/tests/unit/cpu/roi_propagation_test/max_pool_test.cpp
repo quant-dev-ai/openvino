@@ -36,8 +36,23 @@ std::shared_ptr<ov::op::v0::Parameter> get_parameter(const std::shared_ptr<ov::M
 }
 } // namespace
 
-TEST(ROI_Backprop, MaxPoolTest) {
+TEST(ROI_Backprop, MaxPoolTest_3_2) {
     const auto model = get_model(ov::Strides{3, 2}, {0, 0}, {0, 0}, ov::Shape{3, 2});
+
+    ov::pass::VisualizeTree("svg/max_pool_test.svg").run_on_model(model);
+
+    auto map = ov::snippets::get_roi_from_function(model, {{1ul, 1ul, 1ul, 1ul}});
+    const auto& actual_roi = map[get_parameter(model).get()];
+
+    auto expected_shapes = std::vector<ov::PartialShape>{{1ul, 1ul, 3ul, 2ul}};
+    EXPECT_EQ(actual_roi.shapes, expected_shapes);
+
+    auto expected_strides = std::vector<ov::Shape>{{1ul, 1ul, 3ul, 2ul}};
+    EXPECT_EQ(actual_roi.strides, expected_strides);
+}
+
+TEST(ROI_Backprop, MaxPoolTest_1_1) {
+    const auto model = get_model(ov::Strides{1, 13}, {0, 0}, {0, 0}, ov::Shape{3, 2});
 
     ov::pass::VisualizeTree("svg/max_pool_test.svg").run_on_model(model);
 

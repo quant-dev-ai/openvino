@@ -51,6 +51,7 @@ void ov::op::util::MaxPoolBase::validate_and_infer_types() {
         "Expected a 3D, 4D or 5D tensor for the input. Got: ",
         arg_shape);
 
+    // TODO: just to test performance: will be removed later (Maх will be used)
     //if (arg_shape.rank().is_static()) {
     //    NODE_VALIDATION_CHECK(this,
     //                          static_cast<int64_t>(m_pads_end.size()) == arg_shape.rank().get_max_length() - 2,
@@ -95,7 +96,7 @@ ov::PartialShape ov::op::util::MaxPoolBase::infer_output_shape(const Strides& di
 
         const auto& input_shape = get_input_partial_shape(0);
         if ((input_shape.size() == 5ul) && (m_kernel.size() == 2ul)) {
-            // TODO: backprop: workaround for ncdhw8C layout
+            // TODO: just to test performance: will be removed later (Maх will be used)
             output_shape = {input_shape[0ul], input_shape[1ul], input_shape[2ul] / m_kernel[0], input_shape[3ul] / m_kernel[1], input_shape[4ul]};
         } else {
             output_shape = ngraph::infer_batched_pooling_forward(this,

@@ -70,6 +70,8 @@ void MaxPoolTest::SetUp() {
                 values.params.kernel
             },
             values.constantShapes);
+
+    ngraph::pass::VisualizeTree("svg/test.original.svg").run_on_model(function);
 }
 
 void MaxPoolTest::run() {
