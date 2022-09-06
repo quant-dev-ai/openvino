@@ -14,6 +14,7 @@
 #include "snippets/op/convolution_kernel.hpp"
 #include "snippets/op/label.hpp"
 #include "snippets/op/loop.hpp"
+#include "snippets/op/scalar_broadcast_load.hpp"
 
 #include "jit_conditional_jump.hpp"
 #include "jit_conv_kernel.hpp"
@@ -23,6 +24,7 @@
 #include "jit_eltwise_emitters.hpp"
 #include "jit_dnnl_emitters.hpp"
 #include "jit_dnnl_ext_emitters.hpp"
+#include "jit_scalar_broadcast_load_emitter.hpp"
 
 #include <ngraph/opsets/opset5.hpp>
 
@@ -44,6 +46,7 @@ ov::intel_cpu::CPUTargetMachine::CPUTargetMachine(dnnl::impl::cpu::x64::cpu_isa_
     jitters[ngraph::snippets::op::VectorLoad::get_type_info_static()] = CREATE_EMITTER(LoadEmitter);
     jitters[ngraph::snippets::op::ScalarLoad::get_type_info_static()] = CREATE_EMITTER(ScalarLoadEmitter);
     jitters[ngraph::snippets::op::BroadcastLoad::get_type_info_static()] = CREATE_EMITTER(BroadcastLoadEmitter);
+    jitters[ngraph::snippets::op::ScalarBroadcastLoad::get_type_info_static()] = CREATE_EMITTER(ScalarBroadcastLoadEmitter);
 
     jitters[ngraph::snippets::op::Store::get_type_info_static()] = CREATE_EMITTER(StoreEmitter);
     jitters[ngraph::snippets::op::VectorStore::get_type_info_static()] = CREATE_EMITTER(StoreEmitter);

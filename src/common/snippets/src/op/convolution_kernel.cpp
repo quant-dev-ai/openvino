@@ -12,7 +12,10 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-ConvolutionKernel::ConvolutionKernel(const Output<Node>& parent, const Output<Node>& filters) : Op({parent, filters}) {
+ConvolutionKernel::ConvolutionKernel(
+        const Output<Node>& data_batch,
+        const Output<Node>& filters,
+        const Output<Node>& biases) : Op({data_batch, filters, biases}) {
     constructor_validate_and_infer_types();
 }
 
@@ -26,7 +29,8 @@ void ConvolutionKernel::validate_and_infer_types() {
 }
 
 std::shared_ptr<Node> ConvolutionKernel::clone_with_new_inputs(const OutputVector& inputs) const {
-    return std::make_shared<ConvolutionKernel>(inputs[0], inputs[1]);
+    assert(inputs.size() == 3ul);
+    return std::make_shared<ConvolutionKernel>(inputs[0], inputs[1], inputs[2]);
 }
 
 } // namespace op

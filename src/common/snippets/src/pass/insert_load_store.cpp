@@ -26,8 +26,10 @@ ngraph::snippets::pass::InsertLoad::InsertLoad() {
                 const auto input = inputs.begin();
                 const auto& input_node = input->get_node();
                 // TODO: workaround
-                if (is_type<opset1::MaxPool>(input_node)) {
-                //if (is_type<opset1::MaxPool>(input_node) || ((input->get_index() == 1ul) && (is_type<snippets::op::ConvolutionKernel>(input_node)))) {
+                //if (is_type<opset1::MaxPool>(input_node)) {
+                if (is_type<opset1::MaxPool>(input_node) ||
+                    is_type<ngraph::opset1::Convolution>(input_node) ||
+                    (is_type<ngraph::opset1::Add>(input_node) && is_type<ngraph::opset1::Convolution>(input_node->get_input_node_shared_ptr(0)))) {
                     return false;
                 }
             }

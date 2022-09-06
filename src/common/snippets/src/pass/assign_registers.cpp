@@ -167,8 +167,12 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
             }
         }
 
-        // TODO: has to be fixed
+        // TODO: incorrect register - has to be fixed
         if (n->get_friendly_name() == "Store_2864") {
+            regs = { 3ul };
+        }
+
+        if (n->get_friendly_name() == "Store_2880") {
             regs = { 3ul };
         }
 

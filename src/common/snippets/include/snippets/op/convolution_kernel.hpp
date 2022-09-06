@@ -16,7 +16,10 @@ class ConvolutionKernel : public ngraph::op::Op {
 public:
     OPENVINO_OP("ConvolutionKernel", "SnippetsOpset");
 
-    ConvolutionKernel(const Output<Node>& parent, const Output<Node>& filters);
+    ConvolutionKernel(
+            const Output<Node>& data_batch,
+            const Output<Node>& filters,
+            const Output<Node>& biases);
 
     bool visit_attributes(AttributeVisitor& visitor) override { return true; }
     void validate_and_infer_types() override;

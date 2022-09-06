@@ -145,6 +145,21 @@ ngraph::snippets::pass::InsertMoveBroadcast::InsertMoveBroadcast() {
             return false;
         }
 
+        //const auto& inputs = root->get_output_target_inputs(0);
+        //if (inputs.size() == 1ul) {
+        //    const auto input = inputs.begin();
+        //    const auto& input_node = input->get_node();
+        //    // TODO: workaround
+        //    if ((input->get_index() == 1ul) &&  is_type<ngraph::opset1::Add>(input_node)) {
+        //        return false;
+        //    }
+        //}
+
+        // TODO: workaround
+        if (is_type<ngraph::opset1::Add>(root) && (is_type<ngraph::opset1::Convolution>(root->get_input_node_shared_ptr(0)))) {
+            return false;
+        }
+
         std::vector<ngraph::Shape> input_shapes;
         for (const auto& input : values) {
             input_shapes.push_back(input.get_shape());

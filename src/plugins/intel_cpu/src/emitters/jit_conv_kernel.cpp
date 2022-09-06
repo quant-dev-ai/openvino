@@ -8,6 +8,7 @@
 #include <ngraph/variant.hpp>
 #include <ngraph/opsets/opset1.hpp>
 #include "snippets/op/convolution_kernel.hpp"
+#include "snippets/op/loop.hpp"
 
 using namespace Xbyak;
 
@@ -22,32 +23,51 @@ ConvolutionKernelEmitter::ConvolutionKernelEmitter(
     in_out_type_ = emitter_in_out_map::gpr_to_vec;
     shouldPostIncrement = true;
 
-    const auto& convolution = as_type_ptr<ngraph::snippets::op::ConvolutionKernel>(n);
+    const auto &convolution = as_type_ptr<ngraph::snippets::op::ConvolutionKernel>(n);
     assert(convolution != nullptr);
 
-    const auto load = convolution->get_input_node_shared_ptr(1);
-    if (!is_type<ngraph::snippets::op::Load>(load)) {
-        throw ov::Exception("unexpected operation type on weights");
+    auto get_register_index = [](const std::shared_ptr<ngraph::Node> &node) {
+        const auto &rt = node->get_rt_info();
+        const auto it = rt.find("reginfo");
+        if (it == rt.end()) {
+            throw ov::Exception("reginfo is absent");
+        }
+
+        auto regs = it->second.as<std::vector<size_t>>();
+        if (regs.size() != 1ul) {
+            throw ov::Exception("registers count is not correct");
+        }
+        return regs[0];
+    };
+
+    {
+        const auto loop = convolution->get_input_node_shared_ptr(0);
+        if (!is_type<ngraph::snippets::op::Loop>(loop)) {
+            throw ov::Exception("unexpected operation type on data");
+        }
+        const auto data = loop->get_input_node_shared_ptr(0);
+        if (!is_type<ngraph::opset1::Parameter>(data)) {
+            throw ov::Exception("unexpected operation type on data");
+        }
+        data_reg_index = get_register_index(data);
     }
 
-    const auto weights = load->get_input_node_shared_ptr(0);
-    if (!is_type<ngraph::opset1::Parameter>(weights)) {
-        throw ov::Exception("unexpected operation type on weights");
+    {
+        const auto weights = convolution->get_input_node_shared_ptr(1);
+        if (!is_type<ngraph::opset1::Parameter>(weights)) {
+            throw ov::Exception("unexpected operation type on weights");
+        }
+        weights_reg_index = get_register_index(weights);
+        weights_shape = weights->get_shape();
     }
 
-    weights_shape = weights->get_shape();
-
-    const auto& rt = weights->get_rt_info();
-    const auto it = rt.find("reginfo");
-    if (it == rt.end()) {
-        throw ov::Exception("reginfo is absent");
+    {
+        const auto biases = convolution->get_input_node_shared_ptr(2);
+        if (!is_type<ngraph::opset1::Parameter>(biases)) {
+            throw ov::Exception("unexpected operation type on biases");
+        }
+        biases_reg_index = get_register_index(biases);
     }
-
-    auto regs = it->second.as<std::vector<size_t>>();
-    if (regs.size() != 1ul) {
-        throw ov::Exception("registers count is not correct");
-    }
-    weights_reg_index = regs[0];
 }
 
 void ConvolutionKernelEmitter::emit_impl(const std::vector<size_t>& in,
@@ -69,7 +89,7 @@ void ConvolutionKernelEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
-    assert(in.size() == 2ul);
+    assert(in.size() == 3ul);
     //assert(out.size() == 1ul);
     if (out.size() != 1ul) {
         std::cout << "ConvolutionKernelEmitter::emit_isa: why we have more outputs?" << std::endl;
@@ -80,17 +100,39 @@ void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
 
-    //const auto offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+    const size_t offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
 
-    Vmm data = Vmm(in[0]);
-    const auto weights_reg = Reg64(weights_reg_index);
-    Vmm weights = Vmm(in[1]);
-    h->uni_vmovups(weights, h->ptr[weights_reg]);
+    const auto data_gp = Reg64(data_reg_index);
+    const auto weight_gp = Reg64(weights_reg_index);
+    const auto biases_gp = Reg64(biases_reg_index);
 
-    Vmm output = Vmm(out[0]);
-    h->uni_vfmadd231ps(output, data, weights);
+    auto data = Vmm(15);
 
-    h->add(weights_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+    std::vector<Vmm> weights = {Vmm(12), Vmm(13), Vmm(14)};
+    std::vector<Vmm> accums = {Vmm(0), Vmm(1), Vmm(2)};
+
+    h->uni_vbroadcastss(data, h->ptr[data_gp]);
+
+    h->uni_vmovups(weights[0ul], h->ptr[weight_gp]);
+    h->uni_vmovups(weights[1ul], h->ptr[weight_gp + offset]);
+    h->uni_vmovups(weights[2ul], h->ptr[weight_gp + offset * 2]);
+
+    h->uni_vmovups(accums[0ul], h->ptr[biases_gp]);
+    h->uni_vmovups(accums[1ul], h->ptr[biases_gp + offset]);
+    h->uni_vmovups(accums[2ul], h->ptr[biases_gp + offset * 2]);
+
+    for (auto ch = 0ul; ch < 3ul; ++ch) {
+        h->uni_vfmadd231ps(accums[ch], data, weights[ch]);
+    }
+
+    //const auto weights_reg = Reg64(weights_reg_index);
+    //Vmm weights = Vmm(in[1]);
+    //h->uni_vmovups(weights, h->ptr[weights_reg]);
+    //
+    //Vmm output = Vmm(out[0]);
+    //h->uni_vfmadd231ps(output, data, weights);
+    //
+    //h->add(weights_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 }

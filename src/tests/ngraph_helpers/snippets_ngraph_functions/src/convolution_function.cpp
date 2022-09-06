@@ -60,8 +60,11 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
     const auto biases_shape = Shape{ 1, weights_shape[0ul], 1ul, 1ul };
     const auto biases = ngraph::opset1::Constant::create(element::f32, biases_shape, generate_values(biases_shape, 20ul));
     biases->set_friendly_name("biases");
-
     parent = std::make_shared<ngraph::opset1::Add>(parent, biases);
+    parent->set_friendly_name("add");
+
+    parent = std::make_shared<ngraph::opset1::Clamp>(parent, 0ul, 999999ul);
+    parent->set_friendly_name("clamp");
 
     const auto result = std::make_shared<ngraph::opset1::Result>(parent);
     result->set_friendly_name("result");
