@@ -87,6 +87,13 @@ void ConvolutionKernelEmitter::emit_impl(const std::vector<size_t>& in,
     }
 }
 
+namespace {
+size_t get_value_offset(const size_t val_index, const size_t ch_index, const size_t filters_count, const size_t vlen) {
+    // TODO: not completed
+    return val_index * 8ul * 4ul; // (filters_count * ch_index);
+}
+} // namespace
+
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
     assert(in.size() == 3ul);
@@ -101,6 +108,9 @@ void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
 
     const size_t offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+    // TODO: get from shape
+    //const auto in_channels = weights_shape[1ul];
+    const auto in_channels = 16ul;
 
     const auto data_gp = Reg64(data_reg_index);
     const auto weight_gp = Reg64(weights_reg_index);
@@ -109,20 +119,39 @@ void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std
     auto data = Vmm(15);
 
     std::vector<Vmm> weights = {Vmm(12), Vmm(13), Vmm(14)};
-    std::vector<Vmm> accums = {Vmm(0), Vmm(1), Vmm(2)};
-
-    h->uni_vbroadcastss(data, h->ptr[data_gp]);
+    std::vector<Vmm> accums(12ul);
+    for (auto i = 0ul; i < 12ul; ++i) {
+        accums[i] = Vmm(i);
+    }
 
     h->uni_vmovups(weights[0ul], h->ptr[weight_gp]);
-    h->uni_vmovups(weights[1ul], h->ptr[weight_gp + offset]);
-    h->uni_vmovups(weights[2ul], h->ptr[weight_gp + offset * 2]);
+    h->uni_vmovups(weights[1ul], h->ptr[weight_gp + 4 * in_channels * 8]);
+    h->uni_vmovups(weights[2ul], h->ptr[weight_gp + 4 * in_channels * 8 * 2]);
 
     h->uni_vmovups(accums[0ul], h->ptr[biases_gp]);
     h->uni_vmovups(accums[1ul], h->ptr[biases_gp + offset]);
     h->uni_vmovups(accums[2ul], h->ptr[biases_gp + offset * 2]);
 
-    for (auto ch = 0ul; ch < 3ul; ++ch) {
-        h->uni_vfmadd231ps(accums[ch], data, weights[ch]);
+    const auto values_in_register = 8ul;
+    const auto values_amount_per_channel = 4ul;
+    assert(values_in_register % values_amount_per_channel == 0);
+    const auto data_loop = values_in_register / values_amount_per_channel;
+
+    auto value_index = 0ul;
+    for (auto i = 0ul; i < data_loop; ++i) {
+        //for (auto value_index2 = 0ul; value_index2 < values_count_per_channel_amount; value_index2 += 4)
+        {
+            for (auto in_channel = 0ul; in_channel < in_channels; ++in_channel) {
+                // handle first values_count_per_channel_amount
+                for (auto index = 0; index < values_amount_per_channel; ++index, ++value_index) {
+                    const auto value_offset = get_value_offset(value_index, in_channel, in_channels, offset);
+                    h->uni_vbroadcastss(data, h->ptr[data_gp + value_offset]);
+                    for (auto ch_pack = 0ul; ch_pack < 3ul; ++ch_pack) {
+                        h->uni_vfmadd231ps(accums[ch_pack * 3ul + index], data, weights[ch_pack]);
+                    }
+                }
+            }
+        }
     }
 
     //const auto weights_reg = Reg64(weights_reg_index);
