@@ -148,7 +148,11 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
     };
     Shape baseShape;
     AxisVector baseOrder;
-    std::tie(baseShape, baseOrder, std::ignore) = getMaxRankBlockedShape(inputShapes);
+
+    // TODO: improve later
+    auto inputShapesWithoutSpecificConstant = { inputShapes[0], inputShapes[2] };
+    std::tie(baseShape, baseOrder, std::ignore) = getMaxRankBlockedShape(inputShapesWithoutSpecificConstant);
+
     const auto baseRank = baseShape.size();
     const bool baseIsBlocked = baseOrder.size() != std::set<size_t>(baseOrder.begin(), baseOrder.end()).size();
     for (size_t i = 0; i < inputShapes.size(); i++) {
@@ -157,6 +161,13 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
         AxisVector inOrder;
         element::Type inType;
         std::tie(inShape, inOrder, inType) = blockedShape;
+
+        // TODO: will be improved later
+        if (i == 1ul) {
+            m_body->replace_parameter(i, std::make_shared<opset1::Parameter>(inType, inShape));
+            continue;
+        }
+
         const auto inRank = inShape.size();
         NODE_VALIDATION_CHECK(this, inRank <= baseRank, "Input rank can't be larger than output rank in snippets.");
         if (inRank < baseRank) {
@@ -165,8 +176,9 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
             // could be done by PartialShape::broadcast_merge_into, but this way is faster
             size_t startOffset = baseRank - inRank;
             if (baseIsBlocked) {
-                const bool inIsNotBlocked = inOrder.size() == std::set<size_t>(inOrder.begin(), inOrder.end()).size();
-                NODE_VALIDATION_CHECK(this, inIsNotBlocked, "Snippets don't support conversion between blocked layouts of different ranks");
+                // TODO: convolution weights layout
+                //const bool inIsNotBlocked = inOrder.size() == std::set<size_t>(inOrder.begin(), inOrder.end()).size();
+                //NODE_VALIDATION_CHECK(this, inIsNotBlocked, "Snippets don't support conversion between blocked layouts of different ranks");
                 startOffset--;
             }
             std::copy(inShape.begin(), inShape.end(), &newShape[startOffset]);

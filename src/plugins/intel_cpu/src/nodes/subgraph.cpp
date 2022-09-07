@@ -20,6 +20,7 @@
 #include <ngraph/rt_info.hpp>
 #include <ie_ngraph_utils.hpp>
 
+#include <memory_desc/dnnl_blocked_memory_desc.h>
 #include <snippets/op/subgraph.hpp>
 #include <snippets/roi_backprop/roi_backprop.hpp>
 
@@ -134,7 +135,26 @@ void Snippet::initSupportedPrimitiveDescriptors() {
             if (inputShapes[i].getDims()[0] == 1) {
                 inputMask.reset(0); // accepts any stride on batch axis
             }
-            portConfig.setMemDesc(createMemoryDesc(inputShapes[i], supportedPrecision, offset), inputMask);
+
+            if (i == 1ul) {
+                auto shape = getInputShapeAtPort(1);
+                //auto v = new ov::intel_cpu::DnnlBlockedMemoryDesc(
+                //        shape,
+                //        dnnl::memory::data_type::f32,
+                //        dnnl::memory::format_tag::OIhw8i8o);
+
+                auto mem_desc = std::make_shared<ov::intel_cpu::DnnlBlockedMemoryDesc>(
+                        shape,
+                        dnnl::memory::data_type::f32,
+                        dnnl::memory::format_tag::OIhw8i8o);
+                //auto mem_desc = std::make_shared<ov::intel_cpu::DnnlBlockedMemoryDesc>({}, {}, {});
+                //BlockedMemoryDesc::CmpMask cmpMask;
+
+                std::shared_ptr<BlockedMemoryDesc> blocked_mem_desc = std::dynamic_pointer_cast<BlockedMemoryDesc>(mem_desc);
+                portConfig.setMemDesc(blocked_mem_desc);
+            } else {
+                portConfig.setMemDesc(createMemoryDesc(inputShapes[i], supportedPrecision, offset), inputMask);
+            }
             config.inConfs[i] = portConfig;
         }
         config.outConfs.resize(outputShapes.size());

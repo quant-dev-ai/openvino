@@ -60,7 +60,9 @@ Reorder::Reorder(const std::shared_ptr<ngraph::Node>& op, const dnnl::engine& en
 }
 
 Reorder::Reorder(const std::string& name, const dnnl::engine& eng, WeightsSharing::Ptr &w_cache) :
-        Node("Reorder", name, eng, w_cache) {}
+        Node("Reorder", name, eng, w_cache) {
+    std::cout << "Reorder::Reorder: " << name << std::endl;
+}
 
 void Reorder::getSupportedDescriptors() {
     if (getParentEdges().size() != 1)

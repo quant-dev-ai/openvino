@@ -182,7 +182,7 @@ Engine::~Engine() {
 static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function> nGraphFunc, const bool _enableLPT,
                                                const bool _enableSnippets, const bool isLegacyApi) {
 #ifdef CPU_DEBUG_CAPS
-    //ov::pass::Serialize("svg/cpu.original.xml", "svg/cpu.original.bin").run_on_model(nGraphFunc);
+    ov::pass::Serialize("svg/cpu.original.xml", "svg/cpu.original.bin").run_on_model(nGraphFunc);
 #endif
 
     ngraph::pass::Manager manager;

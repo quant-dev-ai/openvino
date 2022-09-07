@@ -176,6 +176,10 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
             regs = { 3ul };
         }
 
+        if (n->get_friendly_name() == "Store_2888") {
+            regs = { 3ul };
+        }
+
         rt["reginfo"] = regs;
     }
 
