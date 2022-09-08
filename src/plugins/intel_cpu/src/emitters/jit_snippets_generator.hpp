@@ -94,9 +94,9 @@ public:
         }
 
         auto reg_it = free_registers.begin();
+        auto reg = *reg_it;
         free_registers.erase(reg_it);
 
-        auto reg = *reg_it;
         if (unique_key != -1ul) {
             allocated_named_registers.emplace(unique_key, reg);
         }
