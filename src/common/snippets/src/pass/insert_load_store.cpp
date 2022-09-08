@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+#include "snippets/pass/insert_load_store.hpp"
+
+#include <assert.h>
+
 #include <snippets/itt.hpp>
 #include "snippets/remarks.hpp"
-
-#include "snippets/pass/insert_load_store.hpp"
 #include "snippets/snippets_isa.hpp"
 #include "snippets/op/convolution_kernel.hpp"
 

@@ -27,6 +27,7 @@ struct emitter_context {
     virtual ~emitter_context() = default;
 };
 
+#define MARKER_PREAMBLE_BEGIN 0
 #define MARKER_LOAD 0
 #define MARKER_BROADCAST 1
 #define MARKER_BROADCAST_LOAD 2

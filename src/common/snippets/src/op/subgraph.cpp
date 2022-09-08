@@ -2,10 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+#include "snippets/op/subgraph.hpp"
+
+#include <algorithm>
+#include <memory>
+#include <array>
+#include <assert.h>
+
 #include <snippets/itt.hpp>
 #include "snippets/remarks.hpp"
-
-#include "snippets/op/subgraph.hpp"
 #include "snippets/pass/insert_load_store.hpp"
 #include "snippets/pass/insert_movebroadcast.hpp"
 #include "snippets/pass/load_movebroadcast_to_broadcastload.hpp"
@@ -18,10 +23,6 @@
 
 #include <ngraph/pass/manager.hpp>
 #include <openvino/pass/serialize.hpp>
-
-#include <algorithm>
-#include <memory>
-#include <array>
 
 #include <ngraph/pass/visualize_tree.hpp>
 

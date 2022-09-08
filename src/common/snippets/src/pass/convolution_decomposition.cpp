@@ -272,7 +272,7 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
 
         const auto ch_loop = std::make_shared<snippets::op::Loop>(parent, parent, iterations_count);
         ch_loop->set_friendly_name(convolution->get_friendly_name() + "_ch_loop");
-        ch_loop->get_rt_info()["order"] = 1ul;
+        ch_loop->get_rt_info()["order"] = static_cast<size_t>(1ul);
 
         const auto convolution_kernel = std::make_shared<snippets::op::ConvolutionKernel>(
                 ch_loop,
@@ -323,7 +323,7 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         const auto ch_conditional_jump = std::make_shared<snippets::op::ConditionalJump>(OutputVector{last});
         ngraph::copy_runtime_info(convolution, ch_conditional_jump);
         ch_conditional_jump->set_friendly_name(convolution->get_friendly_name() + "_ch_jump");
-        ch_conditional_jump->get_rt_info()["order"] = 2ul;
+        ch_conditional_jump->get_rt_info()["order"] = static_cast<size_t>(2ul);
         ch_loop->input(1).replace_source_output(ch_conditional_jump->output(0));
 
         convolution->clear_control_dependents();

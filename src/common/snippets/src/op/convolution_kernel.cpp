@@ -3,6 +3,7 @@
 //
 
 #include "snippets/op/convolution_kernel.hpp"
+#include <assert.h>
 #include "snippets/generator.hpp"
 
 using namespace std;
