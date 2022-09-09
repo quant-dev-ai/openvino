@@ -36,7 +36,16 @@ void roi_backprop(
     for (auto i = 2ul; i < strides0.size() - strides0_offset; ++i) {
         strides0[i] = strides0[i] * op_strides[i - 2ul];
     }
-    strides[0] = strides0;
+    //strides[0] = strides0;
+
+    // TODO: temporary hardcode
+    //strides[0ul][3ul] = strides0[0ul];
+
+    const auto input_shape = input_shapes[0].get_shape();
+    const size_t input_channel = input_shape[1] * input_shape[4];
+    if (input_channel > 8ul) {
+        strides[0ul][3ul] = op->get_strides()[0ul];
+    }
 }
 
 }  // namespace v1

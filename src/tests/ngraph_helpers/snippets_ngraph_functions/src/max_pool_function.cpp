@@ -48,17 +48,17 @@ std::shared_ptr<ov::Model> MaxPoolFunction::get(
         return multiply_values;
     };
 
-    const auto multiply_value = ngraph::opset1::Constant::create(
-            element::f32,
-            constantShapes[0],
-            generate_values(constantShapes[0], 2.f));
-    parent = std::make_shared<ngraph::opset1::Multiply>(parent, multiply_value);
-
-    const auto add_value = ngraph::opset1::Constant::create(
-            element::f32,
-            constantShapes[1],
-            generate_values(constantShapes[1], shape_size(constantShapes[0]) + 2.f));
-    parent = std::make_shared<ngraph::opset1::Add>(parent, add_value);
+    //const auto multiply_value = ngraph::opset1::Constant::create(
+    //        element::f32,
+    //        constantShapes[0],
+    //        generate_values(constantShapes[0], 2.f));
+    //parent = std::make_shared<ngraph::opset1::Multiply>(parent, multiply_value);
+    //
+    //const auto add_value = ngraph::opset1::Constant::create(
+    //        element::f32,
+    //        constantShapes[1],
+    //        generate_values(constantShapes[1], shape_size(constantShapes[0]) + 2.f));
+    //parent = std::make_shared<ngraph::opset1::Add>(parent, add_value);
 
     const auto result = std::make_shared<ngraph::opset1::Result>(parent);
     result->set_friendly_name("result");

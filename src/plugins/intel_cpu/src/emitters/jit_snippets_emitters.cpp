@@ -3,6 +3,7 @@
 //
 
 #include "jit_snippets_emitters.hpp"
+#include <string>
 
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
@@ -638,7 +639,11 @@ MaxPoolEmitter::MaxPoolEmitter(
     shouldPostIncrement = true;
 
     const auto& max_pool = as_type_ptr<ngraph::opset1::MaxPool>(n);
+    if (max_pool == nullptr) {
+        throw ov::Exception("expected operation type");
+    }
     kernel = max_pool->get_kernel();
+    strides = max_pool->get_strides();
     // TODO: backprop: static shape is supported only
     input_shape = max_pool->get_input_shape(0);
 }
@@ -718,7 +723,7 @@ void MaxPoolEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<s
     }
 
     //h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen - offset_to_restore);
-    h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+    h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * strides[1ul]);
     insert_marker(MARKER_MAX_POOL);
 }
 

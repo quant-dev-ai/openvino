@@ -350,6 +350,7 @@ private:
 private:
     bool shouldPostIncrement;
     ov::Shape kernel;
+    ov::Strides strides;
     ov::Shape input_shape;
 };
 }   // namespace intel_cpu
