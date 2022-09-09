@@ -13,12 +13,9 @@
 
 #include <iterator>
 
-#include "ngraph/pass/visualize_tree.hpp"
-
 bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr<ov::Model>& f) {
     RUN_ON_FUNCTION_SCOPE(AssignRegisters);
     OV_ITT_SCOPED_TASK(ngraph::pass::itt::domains::SnippetsTransform, "Snippets::op::AssignRegisters")
-
     using Reg = size_t;
     auto ops = f->get_ordered_ops();
     decltype(ops) stmts;

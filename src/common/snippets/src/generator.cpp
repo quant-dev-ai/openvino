@@ -71,11 +71,8 @@ ngraph::snippets::code ngraph::snippets::Generator::generate(std::shared_ptr<ov:
     OV_ITT_TASK_NEXT(GENERATE, "::Tiles1D")
     // wrapping into tiles1D
     const auto& vector_tile = std::make_shared<ngraph::snippets::op::Tile>(lowered);
-    const auto& vector_region = std::make_pair(
-            target->get(ngraph::snippets::op::Tile::get_type_info_static())(vector_tile),
-            std::make_pair(
-                    std::vector<size_t>{target->get_lanes()},
-                    std::vector<size_t>{}));
+    const auto& vector_region = std::make_pair(target->get(ngraph::snippets::op::Tile::get_type_info_static())(vector_tile),
+                                   std::make_pair(std::vector<size_t>{target->get_lanes()}, std::vector<size_t>{}));
     const auto& scalar_tile = std::make_shared<ngraph::snippets::op::Tile>(scalar_lowered);
     const auto& scalar_region = std::make_pair(target->get(ngraph::snippets::op::Tile::get_type_info_static())(scalar_tile),
                     std::make_pair(std::vector<size_t>{1}, std::vector<size_t>{}));

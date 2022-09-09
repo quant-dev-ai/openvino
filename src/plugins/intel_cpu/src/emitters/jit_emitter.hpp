@@ -27,16 +27,6 @@ struct emitter_context {
     virtual ~emitter_context() = default;
 };
 
-#define MARKER_LOAD 5
-#define MARKER_BROADCAST 6
-#define MARKER_BROADCAST_LOAD 7
-#define MARKER_MULTIPLY 8
-#define MARKER_ADD 9
-#define MARKER_STORE 10
-#define MARKER_TILE 11
-#define MARKER_TILE_SCHEDULER 12
-#define MARKER_MAX_POOL 13
-
 class jit_emitter : public ngraph::snippets::Emitter {
 public:
     jit_emitter(dnnl::impl::cpu::x64::jit_generator* host, dnnl::impl::cpu::x64::cpu_isa_t host_isa,
