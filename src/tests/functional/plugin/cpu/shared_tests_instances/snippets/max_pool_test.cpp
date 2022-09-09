@@ -62,6 +62,6 @@ INSTANTIATE_TEST_SUITE_P(
             ::testing::ValuesIn(testValues),
             ::testing::ValuesIn(input_batches),
             ::testing::ValuesIn(input_types),
-            ::testing::Values(std::pair<size_t, size_t>{6, 1}),
+            ::testing::Values(std::pair<size_t, size_t>{4, 1}),
             ::testing::Values(CommonTestUtils::DEVICE_CPU)),
         MaxPoolTest::getTestCaseName);

@@ -509,45 +509,7 @@ std::vector<memory::format_tag> Node::getAvailableFormatsForDims(const Shape &di
 
 void Node::execute(dnnl::stream strm) {
     if (prim) {
-#ifdef CPU_DEBUG_CAPS
-        // TODO: backprop: debug only
-        auto display = [](ov::intel_cpu::MemoryPtr& memPtr) {
-            float* value = reinterpret_cast<float*>(memPtr->GetData());
-            auto shape = memPtr->GetShape().getDims();
-            std::cout << std::endl << "memPtrs[i]: i=" << 0 << ", shape=" << shape << std::endl;
-
-            const auto spacial_volume = shape[2] * shape[3];
-            for (auto c = 0; c < shape[1]; c++) {
-                std::cout << std::endl << "channel: " << c;
-                auto h = 0ul;
-                for (auto w = 0; w < spacial_volume; ++w) {
-                    if ((w % shape[2]) == 0ul) {
-                        std::cout << std::endl << h << ": ";
-                        h++;
-                    }
-                    std::cout << "\t" << value[w * 8 + c];
-                }
-            }
-            std::cout << std::endl;
-        };
-
-        std::cout << "Node type: " << getTypeStr() << std::endl;
-        if (getTypeStr() == "MaxPool") {
-            auto memory = getParentEdgesAtPort(0)[0]->getMemoryPtr();
-            std::cout << std::endl << "srcMemPtrs.size() = " << 1 << std::endl;
-            display(memory);
-        }
-#endif
-
         (*prim).execute(strm, primArgs);
-
-#ifdef CPU_DEBUG_CAPS
-        if (getTypeStr() == "MaxPool") {
-            auto memory = getParentEdgesAtPort(0)[0]->getMemoryPtr();
-            std::cout << std::endl << "dstMemPtrs.size() = " << 1 << std::endl;
-            display(memory);
-        }
-#endif
     }
 }
 

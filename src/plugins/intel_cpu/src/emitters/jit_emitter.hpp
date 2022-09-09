@@ -144,9 +144,6 @@ protected:
         }
     }
 
-    // TODO: backprop: just to debug
-    void insert_marker(const size_t marker) const;
-
 private:
     mutable std::vector<size_t> preserved_vec_idxs;
     mutable std::vector<size_t> preserved_gpr_idxs;

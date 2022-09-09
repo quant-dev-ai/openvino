@@ -180,9 +180,7 @@ Engine::~Engine() {
 
 static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function> nGraphFunc, const bool _enableLPT,
                                                const bool _enableSnippets, const bool isLegacyApi) {
-#ifdef CPU_DEBUG_CAPS
-    serialize(nGraphFunc, "max_pool.xml", "max_pool.bin");
-#endif
+    // serialize(nGraphFunc, "max_pool.xml", "max_pool.bin");
 
     ngraph::pass::Manager manager;
     manager.set_per_pass_validation(false);

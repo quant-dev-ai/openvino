@@ -258,8 +258,6 @@ void TileSchedulerEmitter::emit_impl(const std::vector<size_t>& in,
                                      const std::vector<size_t>& vec_pool,
                                      const std::vector<size_t>& gpr_pool,
                                      const ov::intel_cpu::emitter_context *emit_context) const {
-    insert_marker(MARKER_TILE_SCHEDULER);
-
     const size_t num_inputs = in[0];
     const size_t num_outputs = in[1];
     const size_t vector_size = in[2];
@@ -303,8 +301,6 @@ void TileSchedulerEmitter::emit_impl(const std::vector<size_t>& in,
             h->jge(for_body, CodeGenerator::T_NEAR);
         }
     }
-
-    insert_marker(MARKER_TILE_SCHEDULER);
 }
 
 std::vector<AllocatedEmitter>& TileEmitter::get_nested_code() {
@@ -342,8 +338,6 @@ void TileEmitter::emit_impl(const std::vector<size_t>& in,
                             const std::vector<size_t>& vec_pool,
                             const std::vector<size_t>& gpr_pool,
                             const ov::intel_cpu::emitter_context *emit_context) const {
-    insert_marker(MARKER_TILE);
-
     const size_t inc = in[0];
     Reg64 work_amount = Reg64(static_cast<int>(in[1]));
     Label for_body;
@@ -359,8 +353,6 @@ void TileEmitter::emit_impl(const std::vector<size_t>& in,
         h->cmp(work_amount, inc);
         h->jge(for_body, CodeGenerator::T_NEAR);
     }
-
-    insert_marker(MARKER_TILE);
 }
 
 FakeBroadcastEmitter::FakeBroadcastEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -392,8 +384,6 @@ void FakeBroadcastEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void FakeBroadcastEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
-    insert_marker(MARKER_BROADCAST);
-
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Vmm vmm_src0 = Vmm(in[0]);
@@ -404,8 +394,6 @@ void FakeBroadcastEmitter::emit_isa(const std::vector<size_t> &in, const std::ve
     } else {
         h->uni_vmovups(vmm_dst, vmm_src0);
     }
-
-    insert_marker(MARKER_BROADCAST);
 }
 
 ScalarEmitter::ScalarEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -469,16 +457,12 @@ void StoreEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void StoreEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
-    insert_marker(MARKER_STORE);
-
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 out_reg(static_cast<int>(out[0]));
     Vmm vmm_src0 = Vmm(in[0]);
     h->uni_vmovups(h->ptr[out_reg], vmm_src0);
     h->add(out_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
-
-    insert_marker(MARKER_STORE);
 }
 
 ScalarStoreEmitter::ScalarStoreEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -538,8 +522,6 @@ void LoadEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void LoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
-    insert_marker(MARKER_LOAD);
-
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 in_reg(static_cast<int>(in[0]));
@@ -549,8 +531,6 @@ void LoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size
     if (shouldPostIncrement) {
         h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
     }
-
-    insert_marker(MARKER_LOAD);
 }
 
 BroadcastLoadEmitter::BroadcastLoadEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa,
@@ -577,8 +557,6 @@ void BroadcastLoadEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void BroadcastLoadEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
-    insert_marker(MARKER_BROADCAST_LOAD);
-
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
     Reg64 in_reg(in[0]);
@@ -587,8 +565,6 @@ void BroadcastLoadEmitter::emit_isa(const std::vector<size_t> &in, const std::ve
     // In doesn't really matter if we broadcast or `movss` for vector tails so keep only one version for `BroadcastLoad`,
     // key point here is not to add post-increment, it might be fixed by some other approach in future
     h->uni_vbroadcastss(vmm_src0, h->ptr[in_reg]);
-
-    insert_marker(MARKER_BROADCAST_LOAD);
 }
 
 
@@ -662,8 +638,6 @@ void MaxPoolEmitter::emit_impl(const std::vector<size_t>& in,
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void MaxPoolEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
-    insert_marker(MARKER_MAX_POOL);
-
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
 
@@ -680,8 +654,6 @@ void MaxPoolEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<s
     auto offset_to_restore = 0ul;
     auto current_offset = 0ul;
 
-    std::cout << "d_dim_max=" << d_dim_max << ", h_dim_max=" << h_dim_max << ", w_dim_max=" << w_dim_max << std::endl;
-
     for (auto d_dim = 0ul; d_dim < d_dim_max; ++d_dim) {
         for (auto h_dim = 0ul; h_dim < h_dim_max; ++h_dim) {
             for (auto w_dim = 0ul; w_dim < w_dim_max; ++w_dim) {
@@ -690,36 +662,22 @@ void MaxPoolEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<s
                     continue;
                 }
 
-
                 if (w_dim != 0ul) {
                     // the same line
                     offset_to_restore += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
-                    //h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
                     current_offset += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
                 } else {
                     // new line
                     offset_to_restore += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1] + 1ul);
-                    //h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1] + 1ul));
                     current_offset += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1] + 1ul);
                 }
                 h->uni_vmovups(vmm_in0, h->ptr[in_reg + current_offset]);
-
                 h->uni_vmaxps(vmm_out0, vmm_out0, vmm_in0);
             }
-
-            //if ((h_dim < (h_dim_max - 1ul)) && (kernel.size() >= 2ul)) {
-            //    offset_to_restore += dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1]);
-            //    h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[1]));
-            //}
         }
-        //if ((d < (d_max - 1ul)) && (kernel.size() >= 3ul)) {
-        //    h->add(in_reg, (dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * (offset - kernel[0])));
-        //}
     }
 
-    //h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen - offset_to_restore);
     h->add(in_reg, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
-    insert_marker(MARKER_MAX_POOL);
 }
 
 }   // namespace intel_cpu

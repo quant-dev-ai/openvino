@@ -19,8 +19,6 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
     RUN_ON_FUNCTION_SCOPE(AssignRegisters);
     OV_ITT_SCOPED_TASK(ngraph::pass::itt::domains::SnippetsTransform, "Snippets::op::AssignRegisters")
 
-    ngraph::pass::VisualizeTree("svg/snippets.assign_registers.1.svg").run_on_model(f);
-
     using Reg = size_t;
     auto ops = f->get_ordered_ops();
     decltype(ops) stmts;
@@ -168,8 +166,6 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
         }
         rt["reginfo"] = regs;
     }
-
-    ngraph::pass::VisualizeTree("svg/snippets.assign_registers.2.svg").run_on_model(f);
 
     return false;
 }

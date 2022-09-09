@@ -234,8 +234,6 @@ void compare(const ov::Tensor& expected,
         double expected_value = expected_data[i];
         double actual_value = actual_data[i];
 
-        std::cout << i + 1ul << ": expected: " << expected_value << "\t\tactual: " << actual_value << std::endl;
-
         auto error = [&] (Error& err, double val, double threshold) {
             if (less(err.max, val)) {
                 err.max = val;
