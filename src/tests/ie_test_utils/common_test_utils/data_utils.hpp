@@ -29,7 +29,7 @@ inline void fill_data(float *data, size_t size, size_t duty_ratio = 10) {
 }
 
 /**
- * @brief Create vector of floats with length of vec_len, with values ranging from min to max, 
+ * @brief Create vector of floats with length of vec_len, with values ranging from min to max,
  * with initial seed equal to variable seed with default of 0
  */
 inline std::vector<float> generate_float_numbers(std::size_t vec_len, float min, float max, int seed = 0) {
@@ -202,7 +202,7 @@ fill_data_random(T *pointer, std::size_t size, const uint32_t range = 10, int32_
 
     for (std::size_t i = 0; i < size; i++) {
         pointer[i] = i + 1;
-        std::cout << i << " : " << pointer[i] << std::endl;
+        //std::cout << i << " : " << pointer[i] << std::endl;
 
         //pointer[i] = static_cast<T>(start_from + static_cast<T>(random.Generate(range)) / k);
     }

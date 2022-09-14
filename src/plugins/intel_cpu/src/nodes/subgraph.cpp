@@ -223,16 +223,32 @@ void Snippet::execute(dnnl::stream strm) {
             std::cout << std::endl << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
 
             const auto spacial_volume = shape[2] * shape[3];
-            for (auto c = 0; c < shape[1]; ++c) {
+            for (auto c = 0ull; c < shape[1]; ++c) {
                 std::cout << std::endl << "channel: " << c;
                 auto h = 0ul;
-                for (auto w = 0; w < spacial_volume; ++w) {
+                for (auto w = 0ull; w < spacial_volume; ++w) {
                     if ((w % shape[2]) == 0ul) {
                         std::cout << std::endl << h << ": ";
                         h++;
                     }
-                    std::cout << "\t" << value[w * 8 + c];
+
+                    std::cout << "\t" << value[w * 8 + (c % 8) + (c / 8) * spacial_volume * 8];
                 }
+            }
+        }
+        std::cout << std::endl;
+    };
+
+    // TODO: backprop: debug only
+    auto display_row = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs) {
+        for (size_t i = 0; i < memPtrs.size(); i++) {
+            float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
+            auto shape = memPtrs[i]->GetShape().getDims();
+            std::cout << std::endl << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
+
+            const auto spacial_volume = shape[2] * shape[3];
+            for (auto i = 0; i < spacial_volume * shape[1]; ++i) {
+                std::cout << "\t" << i << ": " << value[i];
             }
         }
         std::cout << std::endl;
