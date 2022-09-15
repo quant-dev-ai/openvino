@@ -21,7 +21,8 @@ ConvolutionKernel::ConvolutionKernel(
 }
 
 void ConvolutionKernel::validate_and_infer_types() {
-    set_output_size(2);
+    // TODO: just to debug: will be calculated automatically
+    set_output_size(12);
 
     // TODO: will be implemented later
     auto input_shape = get_input_partial_shape(0);

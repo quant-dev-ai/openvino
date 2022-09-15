@@ -150,14 +150,16 @@ void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std
     // values are handled per output channel filters: 4 values per each 24 output filters
     const auto values_amount_per_channel = 4ul;
     assert(values_in_register % values_amount_per_channel == 0);
-    const auto data_loop = values_in_register / values_amount_per_channel;
+
+    // we need it
+    //const auto data_loop = values_in_register / values_amount_per_channel;
 
     //h->uni_vbroadcastss(data, h->ptr[data_gp + 1024 * 1024 * 8 * 4]);
 
     auto v_index_begin = 0ull;
     //for (auto d_index = 0ul; d_index < data_loop; ++d_index) {
     //    // ???
-    const auto in_channels_by_reg = in_channels;
+    //const auto in_channels_by_reg = in_channels;
     auto ch_first = 0ull;
     for (auto filter_index = 0ull; filter_index < in_channels; ++filter_index) {
         for (auto ch = 0ull; ch < 3ull; ++ch) {
