@@ -424,14 +424,15 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         // TODO: temporary assert
         const size_t iterations_count = convolution->input(1).get_source_output().get_shape()[1];
 
-        const auto ch_loop = std::make_shared<snippets::op::Loop>(parent, parent, iterations_count);
-        ch_loop->set_friendly_name(convolution->get_friendly_name() + "_ch_loop");
-        ch_loop->get_rt_info()["order"] = static_cast<size_t>(1ul);
+        const auto for_loop = std::make_shared<snippets::op::ForLoop>(parent, parent, iterations_count);
+        for_loop->set_friendly_name(convolution->get_friendly_name() + "_for_loop");
+        for_loop->get_rt_info()["order"] = static_cast<size_t>(1ul);
 
         const auto convolution_kernel = std::make_shared<snippets::op::ConvolutionKernel>(
-                ch_loop,
+                for_loop,
                 convolution->get_input_node_shared_ptr(1),
-                biases);
+                biases,
+                12);
         ngraph::copy_runtime_info(convolution, convolution_kernel);
         convolution_kernel->set_friendly_name(convolution->get_friendly_name());
 
@@ -456,29 +457,15 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         // TODO: to debug only
         assert(is_type<opset1::Result>(child_input.get_node()));
 
-        //first->input(0).replace_source_output(convolution_kernel->output(1));
+
+
+        const auto auto_loop = std::make_shared<snippets::op::AutoLoop>(convolution_kernel->outputs());
+        auto_loop->set_friendly_name(convolution_kernel->get_friendly_name() + "_auto_loop");
 
 
 
-        first->input(0).replace_source_output(convolution_kernel->output(0));
+        first->input(0).replace_source_output(auto_loop->output(0));
 
-        //const auto exec_jump = std::make_shared<snippets::op::ConditionalJump>(OutputVector{convolution_kernel->output(0)});
-        //exec_jump->set_friendly_name(convolution->get_friendly_name() + "_exec_jump");
-        //const auto exec_jump_label_begin = std::make_shared<snippets::op::Label>(OutputVector{exec_jump->output(1)});
-        //exec_jump_label_begin->set_friendly_name(convolution->get_friendly_name() + "_exec_jump_begin");
-        //first->input(0).replace_source_output(exec_jump_label_begin->output(0));
-        //const auto exec_jump_label_end = std::make_shared<snippets::op::Label>(OutputVector{exec_jump->output(0), last});
-        //exec_jump_label_end->set_friendly_name(convolution->get_friendly_name() + "_exec_jump_end");
-
-
-
-
-        //const auto ch_conditional_jump = std::make_shared<snippets::op::ConditionalJump>(OutputVector{exec_jump_label_end});
-        const auto ch_conditional_jump = std::make_shared<snippets::op::ConditionalJump>(OutputVector{last});
-        ngraph::copy_runtime_info(convolution, ch_conditional_jump);
-        ch_conditional_jump->set_friendly_name(convolution->get_friendly_name() + "_ch_jump");
-        ch_conditional_jump->get_rt_info()["order"] = static_cast<size_t>(2ul);
-        ch_loop->input(1).replace_source_output(ch_conditional_jump->output(0));
 
         convolution->clear_control_dependents();
         convolution->clear_control_dependencies();
@@ -488,43 +475,19 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
 
         {
             // TODO: just to check
-            assert(ch_loop->output(0).get_target_inputs().size() == 1ul);
-            assert(ch_conditional_jump->output(0).get_target_inputs().size() == 1ul);
-            //assert(ch_conditional_jump->output(1).get_target_inputs().size() == 1ul);
-            const auto expected_loop = ch_conditional_jump->output(0).get_target_inputs().begin()->get_node();
-            assert(expected_loop == ch_loop.get());
-            //const auto expected_result = ch_conditional_jump->output(1).get_target_inputs().begin()->get_node();
-            //assert(expected_result == child_input.get_node());
+            assert(for_loop->output(0).get_target_inputs().size() == 1ul);
+            //assert(ch_conditional_jump->output(0).get_target_inputs().size() == 1ul);
+            //const auto expected_loop = ch_conditional_jump->output(0).get_target_inputs().begin()->get_node();
+            //assert(expected_loop == ch_loop.get());
         }
 
 
+        child_input.replace_source_output(auto_loop->output(1));
 
-
-
-        //const auto data_conditional_jump = std::make_shared<snippets::op::ConditionalJump>(OutputVector{ch_conditional_jump->output(1)});
-        //ngraph::copy_runtime_info(convolution, data_conditional_jump);
-        //data_conditional_jump->set_friendly_name(convolution->get_friendly_name() + "_data_jump");
-        //data_conditional_jump->get_rt_info()["order"] = 3ul;
-        //data_loop->input(1).replace_source_output(data_conditional_jump->output(0));
-        //child_input.replace_source_output(data_conditional_jump->output(1));
-        //
-        //{
-        //    // TODO: just to check
-        //    assert(data_loop->output(0).get_target_inputs().size() == 1ul);
-        //    assert(data_conditional_jump->output(0).get_target_inputs().size() == 1ul);
-        //    assert(data_conditional_jump->output(1).get_target_inputs().size() == 1ul);
-        //    const auto expected_loop = data_conditional_jump->output(0).get_target_inputs().begin()->get_node();
-        //    assert(expected_loop == data_loop.get());
-        //    const auto expected_result = data_conditional_jump->output(1).get_target_inputs().begin()->get_node();
-        //    assert(expected_result == child_input.get_node());
-        //}
-
-        child_input.replace_source_output(ch_conditional_jump->output(1));
+        for_loop->input(1).replace_source_output(auto_loop->output(0));
 
         // TODO: will be covered by tests
         assert(convolution_kernel->output(0).get_target_inputs().size() == 1ul);
-        //assert(exec_jump_label_begin->output(0).get_target_inputs().size() == 1ul);
-        //assert(exec_jump_label_end->output(0).get_target_inputs().size() == 1ul);
         return true;
     };
 

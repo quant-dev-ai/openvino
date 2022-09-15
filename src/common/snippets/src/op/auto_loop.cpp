@@ -12,23 +12,22 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-AutoLoop::AutoLoop(const Output<Node>& parent, const Output<Node>& jump, const size_t iterations_count) :
-        Op({ parent, jump }),
-        iterations_count(iterations_count) {
+AutoLoop::AutoLoop(const OutputVector& arguments) : Op(arguments) {
     constructor_validate_and_infer_types();
 }
 
 bool AutoLoop::visit_attributes(AttributeVisitor& visitor) {
-    visitor.on_attribute("iterations_count", iterations_count);
     return true;
 }
 
 void AutoLoop::validate_and_infer_types() {
+    set_output_size(2);
     set_output_type(0, get_input_element_type(0), get_input_partial_shape(0));
+    set_output_type(1, get_input_element_type(0), get_input_partial_shape(0));
 }
 
 std::shared_ptr<Node> AutoLoop::clone_with_new_inputs(const OutputVector& inputs) const {
-    return std::make_shared<AutoLoop>(inputs[0], inputs[1], iterations_count);
+    return std::make_shared<AutoLoop>(inputs);
 }
 
 } // namespace op

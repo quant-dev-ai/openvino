@@ -154,7 +154,7 @@ void KernelEmitter::emit_impl(const std::vector<size_t>& in,
 
                               const std::vector<size_t>& allocated_gp_regs,
                               const ov::intel_cpu::emitter_context *emit_context) const {
-    insert_marker(MARKER_PREAMBLE_BEGIN);
+    insert_marker(MARKER_PREAMBLE_BEGIN2);
     h->preamble();
 
     insert_marker(MARKER_KERNEL);

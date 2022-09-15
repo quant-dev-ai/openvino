@@ -19,11 +19,14 @@ public:
     ConvolutionKernel(
             const Output<Node>& data_batch,
             const Output<Node>& filters,
-            const Output<Node>& biases);
+            const Output<Node>& biases,
+            const size_t outputs_size);
 
     bool visit_attributes(AttributeVisitor& visitor) override { return true; }
     void validate_and_infer_types() override;
     std::shared_ptr<Node> clone_with_new_inputs(const OutputVector& inputs) const override;
+
+    size_t outputs_size;
 };
 
 } // namespace op

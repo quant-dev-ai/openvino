@@ -15,17 +15,11 @@ class AutoLoop : public ngraph::op::Op {
 public:
     OPENVINO_OP("AutoLoop", "SnippetsOpset");
 
-    AutoLoop(const Output<Node>& parent, const Output<Node>& jump, const size_t iterations_count);
+    AutoLoop(const OutputVector& arguments);
 
     bool visit_attributes(AttributeVisitor& visitor) override;
     void validate_and_infer_types() override;
     std::shared_ptr<Node> clone_with_new_inputs(const OutputVector& inputs) const override;
-
-    size_t get_iterations_count() const { return iterations_count; }
-
-private:
-    // TODO: unsigned short?
-    size_t iterations_count;
 };
 
 } // namespace op

@@ -16,23 +16,25 @@ namespace op {
 ConvolutionKernel::ConvolutionKernel(
         const Output<Node>& data_batch,
         const Output<Node>& filters,
-        const Output<Node>& biases) : Op({data_batch, filters, biases}) {
+        const Output<Node>& biases,
+        const size_t outputs_size) : Op({data_batch, filters, biases}), outputs_size(outputs_size) {
     constructor_validate_and_infer_types();
 }
 
 void ConvolutionKernel::validate_and_infer_types() {
     // TODO: just to debug: will be calculated automatically
-    set_output_size(12);
+    set_output_size(outputs_size);
 
     // TODO: will be implemented later
     auto input_shape = get_input_partial_shape(0);
-    set_output_type(0, get_input_element_type(0), {1, 12, 112, 112, 8});
-    set_output_type(1, get_input_element_type(0), {1, 12, 112, 112, 8});
+    for (auto i = 0ull; i < outputs_size; ++i) {
+        set_output_type(i, get_input_element_type(0), { 1, 12, 112, 112, 8 });
+    }
 }
 
 std::shared_ptr<Node> ConvolutionKernel::clone_with_new_inputs(const OutputVector& inputs) const {
     assert(inputs.size() == 3ul);
-    return std::make_shared<ConvolutionKernel>(inputs[0], inputs[1], inputs[2]);
+    return std::make_shared<ConvolutionKernel>(inputs[0], inputs[1], inputs[2], outputs_size);
 }
 
 } // namespace op

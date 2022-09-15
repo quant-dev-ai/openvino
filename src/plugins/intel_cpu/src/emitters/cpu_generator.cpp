@@ -14,12 +14,16 @@
 #include "snippets/op/convolution_kernel.hpp"
 #include "snippets/op/label.hpp"
 #include "snippets/op/loop.hpp"
+#include "snippets/op/auto_loop.hpp"
+#include "snippets/op/for_loop.hpp"
 #include "snippets/op/scalar_broadcast_load.hpp"
 
 #include "jit_conditional_jump.hpp"
 #include "jit_conv_kernel.hpp"
 #include "jit_label.hpp"
 #include "jit_loop.hpp"
+#include "jit_auto_loop.hpp"
+#include "jit_for_loop.hpp"
 #include "jit_snippets_emitters.hpp"
 #include "jit_eltwise_emitters.hpp"
 #include "jit_dnnl_emitters.hpp"
@@ -66,6 +70,8 @@ ov::intel_cpu::CPUTargetMachine::CPUTargetMachine(dnnl::impl::cpu::x64::cpu_isa_
 
     jitters[ngraph::snippets::op::ConditionalJump::get_type_info_static()] = CREATE_EMITTER(ConditionalJumpEmitter);
     jitters[ngraph::snippets::op::Loop::get_type_info_static()] = CREATE_EMITTER(LoopEmitter);
+    jitters[ngraph::snippets::op::AutoLoop::get_type_info_static()] = CREATE_EMITTER(AutoLoopEmitter);
+    jitters[ngraph::snippets::op::ForLoop::get_type_info_static()] = CREATE_EMITTER(ForLoopEmitter);
 
     jitters[ngraph::snippets::op::Label::get_type_info_static()] = CREATE_EMITTER(LabelEmitter);
 
