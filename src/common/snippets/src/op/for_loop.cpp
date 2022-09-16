@@ -24,6 +24,7 @@ bool ForLoop::visit_attributes(AttributeVisitor& visitor) {
 }
 
 void ForLoop::validate_and_infer_types() {
+    set_output_size(1);
     set_output_type(0, get_input_element_type(0), get_input_partial_shape(0));
 }
 

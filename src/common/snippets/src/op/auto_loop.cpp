@@ -12,7 +12,7 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-AutoLoop::AutoLoop(const OutputVector& arguments) : Op(arguments) {
+AutoLoop::AutoLoop(const OutputVector& arguments) : Op(arguments), iterations_count(arguments.size() - 1ull) {
     constructor_validate_and_infer_types();
 }
 
@@ -21,9 +21,8 @@ bool AutoLoop::visit_attributes(AttributeVisitor& visitor) {
 }
 
 void AutoLoop::validate_and_infer_types() {
-    set_output_size(2);
+    set_output_size(1);
     set_output_type(0, get_input_element_type(0), get_input_partial_shape(0));
-    set_output_type(1, get_input_element_type(0), get_input_partial_shape(0));
 }
 
 std::shared_ptr<Node> AutoLoop::clone_with_new_inputs(const OutputVector& inputs) const {

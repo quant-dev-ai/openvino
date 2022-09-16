@@ -180,6 +180,10 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
             regs = { 3ul };
         }
 
+        if (n->get_friendly_name() == "convolution") {
+            regs = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+        }
+
         rt["reginfo"] = regs;
     }
 

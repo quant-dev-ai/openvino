@@ -7,7 +7,7 @@
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
 #include <ngraph/opsets/opset1.hpp>
-#include "snippets/op/loop.hpp"
+#include "snippets/op/for_loop.hpp"
 
 using namespace Xbyak;
 
@@ -18,7 +18,7 @@ ForLoopEmitter::ForLoopEmitter(
         jit_snippets_generator* h,
         dnnl::impl::cpu::x64::cpu_isa_t isa,
         const std::shared_ptr<ov::Node>& n) : jit_emitter(h, isa, n) {
-    const auto& loop = as_type_ptr<ngraph::snippets::op::Loop>(n);
+    const auto& loop = as_type_ptr<ngraph::snippets::op::ForLoop>(n);
     label_id = loop->get_instance_id();
     iterations_count = loop->get_iterations_count();
 }

@@ -9,6 +9,7 @@
 #include <ngraph/opsets/opset1.hpp>
 #include "snippets/op/conditional_jump.hpp"
 #include "snippets/op/label.hpp"
+#include "snippets/op/auto_loop.hpp"
 #include "snippets/op/loop.hpp"
 
 using namespace Xbyak;
@@ -23,15 +24,21 @@ ConditionalJumpEmitter::ConditionalJumpEmitter(
     const auto& conditional_jump = as_type_ptr<ngraph::snippets::op::ConditionalJump>(n);
     //iterations_count = conditional_jump->get_iterations_count();
     assert(conditional_jump->output(0).get_target_inputs().size() == 1ul);
+    assert(conditional_jump->output(1).get_target_inputs().size() == 1ul);
 
     label_ids = std::vector<size_t>(conditional_jump->get_output_size(), 0ul);
 
-    const auto loop = ngraph::as_type_ptr<ngraph::snippets::op::Loop>(
-            (*conditional_jump->output(0).get_target_inputs().begin()).get_node()->shared_from_this());
-    if (loop != nullptr) {
-        assert(loop != nullptr);
-        iterations_count = loop->get_iterations_count();
-        label_ids[0] = loop->get_instance_id();
+    auto loop = (*conditional_jump->output(0).get_target_inputs().begin()).get_node()->shared_from_this();
+
+    // TODO: ILoop
+    if (is_type<ngraph::snippets::op::Loop>(loop)) {
+        const auto loop1 = ngraph::as_type_ptr<ngraph::snippets::op::Loop>(loop);
+        iterations_count = loop1->get_iterations_count();
+        label_ids[0] = loop1->get_instance_id();
+    } else if (is_type<ngraph::snippets::op::AutoLoop>(loop)) {
+        const auto loop2 = ngraph::as_type_ptr<ngraph::snippets::op::AutoLoop>(loop);
+        iterations_count = loop2->get_iterations_count();
+        label_ids[0] = loop2->get_instance_id();
     } else {
         // TODO: workaround
         iterations_count = 1ul;

@@ -18,7 +18,7 @@ namespace intel_cpu {
 class AutoLoopEmitter : public jit_emitter {
 public:
     AutoLoopEmitter(jit_snippets_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa, const std::shared_ptr<ov::Node>& n);
-    size_t get_inputs_num() const override {return 2ul;}
+    size_t get_inputs_num() const override {return input_size;}
 
 private:
     void emit_impl(const std::vector<size_t>& in,
@@ -33,6 +33,7 @@ private:
 private:
     size_t label_id;
     size_t iterations_count;
+    size_t input_size;
 };
 }   // namespace intel_cpu
 }   // namespace ov

@@ -26,7 +26,6 @@
 #include "snippets/op/label.hpp"
 #include "snippets/op/loop.hpp"
 #include "snippets/op/auto_loop.hpp"
-#include "snippets/op/for_loop.hpp"
 #include "snippets/op/scalar_broadcast_load.hpp"
 
 namespace ngraph {
@@ -424,17 +423,18 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         // TODO: temporary assert
         const size_t iterations_count = convolution->input(1).get_source_output().get_shape()[1];
 
-        const auto for_loop = std::make_shared<snippets::op::ForLoop>(parent, parent, iterations_count);
-        for_loop->set_friendly_name(convolution->get_friendly_name() + "_for_loop");
-        for_loop->get_rt_info()["order"] = static_cast<size_t>(1ul);
+        const auto loop = std::make_shared<snippets::op::Loop>(parent, parent, iterations_count);
+        loop->set_friendly_name(convolution->get_friendly_name() + "_loop");
+        loop->get_rt_info()["order"] = static_cast<size_t>(1ull);
 
         const auto convolution_kernel = std::make_shared<snippets::op::ConvolutionKernel>(
-                for_loop,
+                loop->output(0),
                 convolution->get_input_node_shared_ptr(1),
                 biases,
                 12);
         ngraph::copy_runtime_info(convolution, convolution_kernel);
         convolution_kernel->set_friendly_name(convolution->get_friendly_name());
+        convolution_kernel->get_rt_info()["order"] = static_cast<size_t>(2ull);
 
         //const auto parent_output = parent->output(0);
         //loop->input(0).replace_source_output(parent_output);
@@ -453,18 +453,25 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
 
         auto first = nodes[0];
         auto last = nodes.back();
-        const auto child_input = *last->output(0).get_target_inputs().begin();
+        const auto return_input = *last->output(0).get_target_inputs().begin();
         // TODO: to debug only
-        assert(is_type<opset1::Result>(child_input.get_node()));
+        assert(is_type<opset1::Result>(return_input.get_node()));
 
 
+        const auto auto_loop_jump = std::make_shared<snippets::op::ConditionalJump>(OutputVector{ last->output(0) });
+        auto_loop_jump->set_friendly_name(convolution_kernel->get_friendly_name() + "_auto_loop_jump");
+        auto_loop_jump->get_rt_info()["order"] = static_cast<size_t>(6ull);
 
-        const auto auto_loop = std::make_shared<snippets::op::AutoLoop>(convolution_kernel->outputs());
+        auto auto_loop_inputs = convolution_kernel->outputs();
+        auto_loop_inputs.push_back(auto_loop_jump->output(0));
+        const auto auto_loop = std::make_shared<snippets::op::AutoLoop>(auto_loop_inputs);
         auto_loop->set_friendly_name(convolution_kernel->get_friendly_name() + "_auto_loop");
+        auto_loop->get_rt_info()["order"] = static_cast<size_t>(3ull);
 
 
 
         first->input(0).replace_source_output(auto_loop->output(0));
+        first->get_rt_info()["order"] = static_cast<size_t>(4ull);
 
 
         convolution->clear_control_dependents();
@@ -475,16 +482,26 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
 
         {
             // TODO: just to check
-            assert(for_loop->output(0).get_target_inputs().size() == 1ul);
+            assert(loop->output(0).get_target_inputs().size() == 1ul);
             //assert(ch_conditional_jump->output(0).get_target_inputs().size() == 1ul);
             //const auto expected_loop = ch_conditional_jump->output(0).get_target_inputs().begin()->get_node();
             //assert(expected_loop == ch_loop.get());
         }
 
 
-        child_input.replace_source_output(auto_loop->output(1));
+        //return_input.replace_source_output(for_loop->output(1));
+        //for_loop->input(1).replace_source_output(auto_loop_jump->output(1));
 
-        for_loop->input(1).replace_source_output(auto_loop->output(0));
+        last->get_rt_info()["order"] = static_cast<size_t>(5ull);
+
+
+        const auto loop_jump = std::make_shared<snippets::op::ConditionalJump>(OutputVector{ auto_loop_jump->output(1) });
+        loop_jump->set_friendly_name(convolution_kernel->get_friendly_name() + "_loop_jump");
+        loop_jump->get_rt_info()["order"] = static_cast<size_t>(7ull);
+
+        loop->input(1).replace_source_output(loop_jump->output(0));
+
+        return_input.replace_source_output(loop_jump->output(1));
 
         // TODO: will be covered by tests
         assert(convolution_kernel->output(0).get_target_inputs().size() == 1ul);
