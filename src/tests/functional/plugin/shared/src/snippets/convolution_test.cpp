@@ -9,6 +9,7 @@
 #include <tuple>
 
 #include "ngraph_ops/type_relaxed.hpp"
+#include "ngraph/pass/visualize_tree.hpp"
 #include "convolution_function.hpp"
 
 namespace LayerTestsDefinitions {
@@ -68,6 +69,8 @@ void ConvolutionTest::SetUp() {
                 values.convolution_params.auto_pad
             },
             values.weights_shape);
+
+    ngraph::pass::VisualizeTree("svg/test.actual.svg").run_on_function(function);
 }
 
 void ConvolutionTest::run() {
