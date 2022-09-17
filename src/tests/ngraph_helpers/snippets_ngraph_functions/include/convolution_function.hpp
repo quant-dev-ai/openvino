@@ -24,14 +24,14 @@ public:
         ov::CoordinateDiff pads_end;
         ov::Strides dilations;
         ov::op::PadType auto_pad;
+        ov::Shape weights_shape;
     };
 
     static std::shared_ptr<ov::Model> get(
             const ngraph::Shape& inputShape,
             const element::Type inputType,
             const PrerequisitesParams& prerequisites_params,
-            const ConvolutionParams& convolution_params,
-            const ov::Shape& weights_shape);
+            const std::vector<ConvolutionParams>& convolution_params);
 };
 
 }  // namespace snippets

@@ -28,11 +28,11 @@ public:
         ov::CoordinateDiff pads_end;
         ov::Strides dilations;
         ov::op::PadType auto_pad;
+        ov::Shape weights_shape;
     };
     ov::Shape input_shape;
     PrerequisitesParams prerequisites_params;
-    ConvolutionParams convolution_params;
-    ov::Shape weights_shape;
+    std::vector<ConvolutionParams> convolution_params;
 };
 
 typedef std::tuple<

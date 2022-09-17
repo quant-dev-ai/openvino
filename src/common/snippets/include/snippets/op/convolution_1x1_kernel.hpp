@@ -12,11 +12,11 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-class ConvolutionKernel : public ngraph::op::Op {
+class Convolution1x1Kernel : public ngraph::op::Op {
 public:
-    OPENVINO_OP("ConvolutionKernel", "SnippetsOpset");
+    OPENVINO_OP("Convolution1x1Kernel", "SnippetsOpset");
 
-    ConvolutionKernel(
+    Convolution1x1Kernel(
             const Output<Node>& data_batch,
             const Output<Node>& filters,
             const Output<Node>& biases,

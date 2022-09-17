@@ -1,13 +1,13 @@
-// Copyright (C) 2020-2022 Intel Corporation
+// Copyright (C) 2022 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "jit_conv_kernel.hpp"
+#include "jit_conv_dw_kernel.hpp"
 
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
 #include <ngraph/opsets/opset1.hpp>
-#include "snippets/op/convolution_kernel.hpp"
+#include "snippets/op/convolution_dw_kernel.hpp"
 #include "snippets/op/loop.hpp"
 
 using namespace Xbyak;
@@ -15,7 +15,7 @@ using namespace Xbyak;
 namespace ov {
 namespace intel_cpu {
 
-ConvolutionKernelEmitter::ConvolutionKernelEmitter(
+ConvolutionDwKernelEmitter::ConvolutionDwKernelEmitter(
         dnnl::impl::cpu::x64::jit_generator* h,
         dnnl::impl::cpu::x64::cpu_isa_t isa,
         const std::shared_ptr<ov::Node>& n) : jit_emitter(h, isa, n) {
@@ -70,7 +70,7 @@ ConvolutionKernelEmitter::ConvolutionKernelEmitter(
     //}
 }
 
-void ConvolutionKernelEmitter::emit_impl(const std::vector<size_t>& in,
+void ConvolutionDwKernelEmitter::emit_impl(const std::vector<size_t>& in,
                             const std::vector<size_t>& out,
                             const std::vector<size_t>& pool,
                             const std::vector<size_t>& gpr,
@@ -101,7 +101,7 @@ size_t get_value_offset(const size_t val_index, const size_t ch_index, const siz
 } // namespace
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
-void ConvolutionKernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+void ConvolutionDwKernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
     assert(in.size() == 3ul);
     //assert(out.size() == 1ul);
     if (out.size() != 1ul) {

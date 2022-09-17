@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "snippets/op/convolution_kernel.hpp"
+#include "snippets/op/convolution_dw_kernel.hpp"
 #include <assert.h>
 #include "snippets/generator.hpp"
 
@@ -13,7 +13,7 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
-ConvolutionKernel::ConvolutionKernel(
+ConvolutionDwKernel::ConvolutionDwKernel(
         const Output<Node>& data_batch,
         const Output<Node>& filters,
         const Output<Node>& biases,
@@ -21,7 +21,7 @@ ConvolutionKernel::ConvolutionKernel(
     constructor_validate_and_infer_types();
 }
 
-void ConvolutionKernel::validate_and_infer_types() {
+void ConvolutionDwKernel::validate_and_infer_types() {
     // TODO: just to debug: will be calculated automatically
     set_output_size(outputs_size);
 
@@ -32,9 +32,9 @@ void ConvolutionKernel::validate_and_infer_types() {
     }
 }
 
-std::shared_ptr<Node> ConvolutionKernel::clone_with_new_inputs(const OutputVector& inputs) const {
+std::shared_ptr<Node> ConvolutionDwKernel::clone_with_new_inputs(const OutputVector& inputs) const {
     assert(inputs.size() == 3ul);
-    return std::make_shared<ConvolutionKernel>(inputs[0], inputs[1], inputs[2], outputs_size);
+    return std::make_shared<ConvolutionDwKernel>(inputs[0], inputs[1], inputs[2], outputs_size);
 }
 
 } // namespace op

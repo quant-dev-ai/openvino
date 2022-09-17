@@ -27,13 +27,40 @@ std::string ConvolutionTest::getTestCaseName(testing::TestParamInfo<testsParams>
     result << "netPRC=" << input_type << "_";
     result << "D=" << targetDevice << "_";
     result << "IN=" << input_type << "_";
-    result << "P_S=" << CommonTestUtils::vec2str(values.convolution_params.strides) << "_";
-    result << "P_PB=" << CommonTestUtils::vec2str(values.convolution_params.pads_begin) << "_";
-    result << "P_PE=" << CommonTestUtils::vec2str(values.convolution_params.pads_end) << "_";
-    result << "P_K=" << CommonTestUtils::vec2str(values.convolution_params.dilations) << "_";
+
+    for (const auto& convolution_param : values.convolution_params) {
+        result << "P_S=" << CommonTestUtils::vec2str(convolution_param.strides) << "_";
+        result << "P_PB=" << CommonTestUtils::vec2str(convolution_param.pads_begin) << "_";
+        result << "P_PE=" << CommonTestUtils::vec2str(convolution_param.pads_end) << "_";
+        result << "P_K=" << CommonTestUtils::vec2str(convolution_param.dilations) << "_";
+    }
+
     result << "NN1=" << operations_number.first;
     result << "NN2=" << operations_number.second;
     return result.str();
+}
+
+namespace {
+ov::test::snippets::ConvolutionFunction::ConvolutionParams to_param(
+    const LayerTestsDefinitions::ConvolutionTestValues::ConvolutionParams& param) {
+    std::vector<ov::test::snippets::ConvolutionFunction::ConvolutionParams> result;
+    return {
+        param.strides,
+        param.pads_begin,
+        param.pads_end,
+        param.dilations,
+        param.auto_pad,
+        param.weights_shape };
+}
+
+std::vector<ov::test::snippets::ConvolutionFunction::ConvolutionParams> to_params(
+const std::vector<LayerTestsDefinitions::ConvolutionTestValues::ConvolutionParams>& params) {
+    std::vector<ov::test::snippets::ConvolutionFunction::ConvolutionParams> result;
+    for (const auto& param : params) {
+        result.push_back(to_param(param));
+    }
+    return result;
+}
 }
 
 void ConvolutionTest::SetUp() {
@@ -61,14 +88,7 @@ void ConvolutionTest::SetUp() {
                 values.prerequisites_params.pads_end,
                 values.prerequisites_params.kernel
             },
-            {
-                values.convolution_params.strides,
-                values.convolution_params.pads_begin,
-                values.convolution_params.pads_end,
-                values.convolution_params.dilations,
-                values.convolution_params.auto_pad
-            },
-            values.weights_shape);
+            to_params(values.convolution_params));
 
     ngraph::pass::VisualizeTree("svg/test.actual.svg").run_on_function(function);
 }

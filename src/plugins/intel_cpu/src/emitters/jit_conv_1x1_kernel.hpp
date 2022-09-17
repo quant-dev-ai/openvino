@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2022 Intel Corporation
+// Copyright (C) 2022 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -15,9 +15,9 @@ using ngraph::snippets::AllocatedEmitter;
 namespace ov {
 namespace intel_cpu {
 
-class ConvolutionKernelEmitter : public jit_emitter {
+class Convolution1x1KernelEmitter : public jit_emitter {
 public:
-    ConvolutionKernelEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa, const std::shared_ptr<ov::Node>& n);
+    Convolution1x1KernelEmitter(dnnl::impl::cpu::x64::jit_generator* h, dnnl::impl::cpu::x64::cpu_isa_t isa, const std::shared_ptr<ov::Node>& n);
 
     // TODO: biases?
     size_t get_inputs_num() const override {return 2ul;}

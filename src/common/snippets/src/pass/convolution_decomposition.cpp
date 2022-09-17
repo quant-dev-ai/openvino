@@ -22,7 +22,8 @@
 #include <climits>
 
 #include "snippets/op/conditional_jump.hpp"
-#include "snippets/op/convolution_kernel.hpp"
+#include "snippets/op/convolution_1x1_kernel.hpp"
+#include "snippets/op/convolution_dw_kernel.hpp"
 #include "snippets/op/label.hpp"
 #include "snippets/op/loop.hpp"
 #include "snippets/op/auto_loop.hpp"
@@ -110,7 +111,123 @@ bool decompose_1x1(const std::shared_ptr<ngraph::opset1::Convolution>& convoluti
     loop->set_friendly_name(convolution->get_friendly_name() + "_loop");
     loop->get_rt_info()["order"] = static_cast<size_t>(1ull);
 
-    const auto convolution_kernel = std::make_shared<snippets::op::ConvolutionKernel>(
+    const auto convolution_kernel = std::make_shared<snippets::op::Convolution1x1Kernel>(
+        loop->output(0),
+        convolution->get_input_node_shared_ptr(1),
+        biases,
+        12);
+    ngraph::copy_runtime_info(convolution, convolution_kernel);
+    convolution_kernel->set_friendly_name(convolution->get_friendly_name());
+    convolution_kernel->get_rt_info()["order"] = static_cast<size_t>(2ull);
+
+    //const auto parent_output = parent->output(0);
+    //loop->input(0).replace_source_output(parent_output);
+    //parent_output.remove_target_input(convolution->input(0));
+
+
+    std::vector<std::shared_ptr<Node>> nodes;
+    // TODO: get the latest only
+    // TODO: return inputs (not nodes)
+    auto next = biases_add->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
+    fill_body(next, true, nodes);
+    // TODO: to debug only
+    assert(nodes.size() == 2ul);
+
+    assert(nodes.size() > 0);
+
+    auto first = nodes[0];
+    auto last = nodes.back();
+    const auto return_input = *last->output(0).get_target_inputs().begin();
+    // TODO: to debug only
+    assert(is_type<opset1::Result>(return_input.get_node()));
+
+
+    const auto auto_loop_jump = std::make_shared<snippets::op::ConditionalJump>(OutputVector{ last->output(0) });
+    auto_loop_jump->set_friendly_name(convolution_kernel->get_friendly_name() + "_auto_loop_jump");
+    auto_loop_jump->get_rt_info()["order"] = static_cast<size_t>(6ull);
+
+    auto auto_loop_inputs = convolution_kernel->outputs();
+    auto_loop_inputs.push_back(auto_loop_jump->output(0));
+    const auto auto_loop = std::make_shared<snippets::op::AutoLoop>(auto_loop_inputs);
+    auto_loop->set_friendly_name(convolution_kernel->get_friendly_name() + "_auto_loop");
+    auto_loop->get_rt_info()["order"] = static_cast<size_t>(3ull);
+
+
+
+    first->input(0).replace_source_output(auto_loop->output(0));
+    first->get_rt_info()["order"] = static_cast<size_t>(4ull);
+
+
+    convolution->clear_control_dependents();
+    convolution->clear_control_dependencies();
+
+    //child_input.replace_source_output(ch_conditional_jump->output(1));
+
+
+    {
+        // TODO: just to check
+        assert(loop->output(0).get_target_inputs().size() == 1ul);
+        //assert(ch_conditional_jump->output(0).get_target_inputs().size() == 1ul);
+        //const auto expected_loop = ch_conditional_jump->output(0).get_target_inputs().begin()->get_node();
+        //assert(expected_loop == ch_loop.get());
+    }
+
+
+    //return_input.replace_source_output(for_loop->output(1));
+    //for_loop->input(1).replace_source_output(auto_loop_jump->output(1));
+
+    last->get_rt_info()["order"] = static_cast<size_t>(5ull);
+
+
+    const auto loop_jump = std::make_shared<snippets::op::ConditionalJump>(OutputVector{ auto_loop_jump->output(1) });
+    loop_jump->set_friendly_name(convolution_kernel->get_friendly_name() + "_loop_jump");
+    loop_jump->get_rt_info()["order"] = static_cast<size_t>(7ull);
+
+    loop->input(1).replace_source_output(loop_jump->output(0));
+
+    return_input.replace_source_output(loop_jump->output(1));
+
+    // TODO: will be covered by tests
+    assert(convolution_kernel->output(0).get_target_inputs().size() == 1ul);
+
+    return true;
+}
+
+bool decompose_dw(const std::shared_ptr<ngraph::opset1::Convolution>& convolution) {
+    const auto biases_add = convolution->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
+    const auto biases = biases_add->get_input_node_shared_ptr(1ul);
+
+    const auto load = get_load(convolution->get_input_node_shared_ptr(0));
+    assert(load != nullptr);
+
+    //// TODO: will be fixed later: ConvolutionDecomposition will be moved upper by execution flow
+    //const auto scalar_load = std::make_shared<snippets::op::ScalarBroadcastLoad>(load->input(0).get_source_output());
+    //ngraph::copy_runtime_info(load, scalar_load);
+    //scalar_load->set_friendly_name(load->get_friendly_name());
+    //
+    //replace_node(load, scalar_load);
+    auto scalar_load = load;
+
+
+
+    const auto& target_inputs = convolution->output(0).get_target_inputs();
+    if (target_inputs.size() != 1ul) {
+        return false;
+    }
+
+    const auto parent = convolution->get_input_node_shared_ptr(0);
+    // TODO: NCHW
+    // TODO: static
+    const auto input_shape = convolution->get_input_shape(0);
+    const auto output_shape = convolution->output(0).get_shape();
+    // TODO: temporary assert
+    const size_t iterations_count = convolution->input(1).get_source_output().get_shape()[1];
+
+    const auto loop = std::make_shared<snippets::op::Loop>(parent, parent, iterations_count);
+    loop->set_friendly_name(convolution->get_friendly_name() + "_loop");
+    loop->get_rt_info()["order"] = static_cast<size_t>(1ull);
+
+    const auto convolution_kernel = std::make_shared<snippets::op::ConvolutionDwKernel>(
         loop->output(0),
         convolution->get_input_node_shared_ptr(1),
         biases,
@@ -206,7 +323,17 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         }
 
         const auto convolution = as_type_ptr<opset1::Convolution>(root);
-        return decompose_1x1(convolution);
+
+        // TODO: not completed
+        const auto weights = convolution->get_input_node_shared_ptr(1);
+        const auto weights_shape = weights->output(0).get_shape();
+        if (weights_shape.size() == 4ull) {
+            return decompose_1x1(convolution);
+        } else if (weights_shape.size() == 5ull) {
+            return decompose_dw(convolution);
+        }
+
+        throw ov::Exception("unexpected convolution");
     };
 
     register_matcher(std::make_shared<ngraph::pattern::Matcher>(matcher, matcher_name), callback);

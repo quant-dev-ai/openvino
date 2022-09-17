@@ -75,8 +75,7 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
         const ngraph::Shape& inputShape,
         const element::Type inputType,
         const PrerequisitesParams& prerequisites_params,
-        const ConvolutionParams& convolution_params,
-        const ov::Shape& weights_shape) {
+        const std::vector<ConvolutionParams>& convolution_params) {
     assert(inputShape.size() == 4ul);
     assert(inputType == element::f32);
 
@@ -113,7 +112,9 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
     //parent = std::make_shared<ngraph::opset1::Add>(parent, biases);
     //parent->set_friendly_name("add");
 
-    parent = make_convolution(parent, convolution_params, weights_shape);
+    for (const auto& convolution_param : convolution_params) {
+        parent = make_convolution(parent, convolution_param, convolution_param.weights_shape);
+    }
 
     parent = std::make_shared<ngraph::opset1::Clamp>(parent, 0ul, 999999ul);
     parent->set_friendly_name("clamp");
