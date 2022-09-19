@@ -25,9 +25,11 @@ const auto generate_values = [](const Shape& shape, const float begin_value) {
 std::shared_ptr<Node> make_convolution(
         const ov::Output<ov::Node>& parent,
         const ConvolutionFunction::ConvolutionParams& convolution_params,
-        const ov::Shape& weights_shape) {
+        const ov::Shape& weights_shape,
+        const size_t index,
+        const size_t size) {
     const auto weights = ngraph::opset1::Constant::create(element::f32, weights_shape, generate_values(weights_shape, 10ul));
-    weights->set_friendly_name("weights");
+    weights->set_friendly_name("weights" + (size == 1ul ? "" : std::to_string(index + 1)));
 
     const auto input_shape = parent.get_shape();
 
@@ -59,13 +61,13 @@ std::shared_ptr<Node> make_convolution(
             convolution_params.dilations,
             convolution_params.auto_pad);
     }
-    convolution->set_friendly_name("convolution");
+    convolution->set_friendly_name("convolution" + (size == 1ul ? "" : std::to_string(index + 1)));
 
     const auto biases_shape = Shape{ 1, weights_shape[0ul], 1ul, 1ul };
     const auto biases = ngraph::opset1::Constant::create(element::f32, biases_shape, generate_values(biases_shape, 20ul));
-    biases->set_friendly_name("biases");
+    biases->set_friendly_name("biases" + (size == 1ul ? "" : std::to_string(index + 1)));
     auto add = std::make_shared<ngraph::opset1::Add>(convolution, biases);
-    add->set_friendly_name("add");
+    add->set_friendly_name("add" + (size == 1ul ? "" : std::to_string(index + 1)));
 
     return add;
 }
@@ -92,32 +94,13 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
             op::RoundingType::FLOOR);
     parent->set_friendly_name("prerequisites");
 
-    //const auto weights = ngraph::opset1::Constant::create(element::f32, weights_shape, generate_values(weights_shape, 10ul));
-    ////const auto weights = ngraph::opset1::Constant::create(element::f32, Shape{1, 96, 16, 1}, generate_values(weights_shape, 10ul));
-    //weights->set_friendly_name("weights");
+    for (auto i = 0ull; i < convolution_params.size(); ++i) {
+        const auto& convolution_param = convolution_params[i];
+        parent = make_convolution(parent, convolution_param, convolution_param.weights_shape, i, convolution_params.size());
 
-    //parent = std::make_shared<ngraph::opset1::Convolution>(
-    //    parent,
-    //    weights,
-    //    convolution_params.strides,
-    //    convolution_params.pads_begin,
-    //    convolution_params.pads_end,
-    //    convolution_params.dilations,
-    //    convolution_params.auto_pad);
-    //parent->set_friendly_name("convolution");
-
-    //const auto biases_shape = Shape{ 1, weights_shape[0ul], 1ul, 1ul };
-    //const auto biases = ngraph::opset1::Constant::create(element::f32, biases_shape, generate_values(biases_shape, 20ul));
-    //biases->set_friendly_name("biases");
-    //parent = std::make_shared<ngraph::opset1::Add>(parent, biases);
-    //parent->set_friendly_name("add");
-
-    for (const auto& convolution_param : convolution_params) {
-        parent = make_convolution(parent, convolution_param, convolution_param.weights_shape);
+        parent = std::make_shared<ngraph::opset1::Clamp>(parent, 0ul, 999999ul);
+        parent->set_friendly_name("clamp" + (convolution_params.size() == 1ul ? "" : std::to_string(i + 1)));
     }
-
-    parent = std::make_shared<ngraph::opset1::Clamp>(parent, 0ul, 999999ul);
-    parent->set_friendly_name("clamp");
 
     const auto result = std::make_shared<ngraph::opset1::Result>(parent);
     result->set_friendly_name("result");

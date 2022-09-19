@@ -66,12 +66,13 @@ void Snippet::initSupportedPrimitiveDescriptors() {
     const Precision supportedPrecision = Precision::FP32;
 
     bool dimRanksAreEqual = true;
-    for (size_t i = 0; dimRanksAreEqual && i < inputShapes.size(); i++) {
-        for (size_t j = 0; dimRanksAreEqual && j < outputShapes.size(); j++) {
-            if (inputShapes[i].getRank() != outputShapes[j].getRank())
-                dimRanksAreEqual = false;
-        }
-    }
+    // TODO: handle weights
+    //for (size_t i = 0; dimRanksAreEqual && i < inputShapes.size(); i++) {
+    //    for (size_t j = 0; dimRanksAreEqual && j < outputShapes.size(); j++) {
+    //        if (inputShapes[i].getRank() != outputShapes[j].getRank())
+    //            dimRanksAreEqual = false;
+    //    }
+    //}
 
     const size_t ndims = outputShapes[0].getRank();
     const bool isChannelsFirstApplicable = dnnl::impl::utils::one_of(ndims, 1, 2, 4, 5) && dimRanksAreEqual;
@@ -138,17 +139,20 @@ void Snippet::initSupportedPrimitiveDescriptors() {
 
             if (i == 1ul) {
                 auto shape = getInputShapeAtPort(1);
-                //auto v = new ov::intel_cpu::DnnlBlockedMemoryDesc(
-                //        shape,
-                //        dnnl::memory::data_type::f32,
-                //        dnnl::memory::format_tag::OIhw8i8o);
-
                 auto mem_desc = std::make_shared<ov::intel_cpu::DnnlBlockedMemoryDesc>(
                         shape,
                         dnnl::memory::data_type::f32,
                         dnnl::memory::format_tag::OIhw8i8o);
-                //auto mem_desc = std::make_shared<ov::intel_cpu::DnnlBlockedMemoryDesc>({}, {}, {});
-                //BlockedMemoryDesc::CmpMask cmpMask;
+
+                std::shared_ptr<BlockedMemoryDesc> blocked_mem_desc = std::dynamic_pointer_cast<BlockedMemoryDesc>(mem_desc);
+                portConfig.setMemDesc(blocked_mem_desc);
+            } else if (i == 3ul) {
+                //auto shape = getInputShapeAtPort(1);
+                auto shape = inputShapes[i];
+                auto mem_desc = std::make_shared<ov::intel_cpu::DnnlBlockedMemoryDesc>(
+                    shape,
+                    dnnl::memory::data_type::f32,
+                    dnnl::memory::format_tag::OIdhw8i8o);
 
                 std::shared_ptr<BlockedMemoryDesc> blocked_mem_desc = std::dynamic_pointer_cast<BlockedMemoryDesc>(mem_desc);
                 portConfig.setMemDesc(blocked_mem_desc);
@@ -358,8 +362,23 @@ void Snippet::define_schedule() {
         return result;
     };
     ngraph::snippets::op::Subgraph::BlockedShapeVector input_blocked_shapes;
-    for (size_t i = 0; i < inputShapes.size(); i++)
-        input_blocked_shapes.push_back(edgeToBlockedShape(getParentEdgesAtPort(i)[0]));
+    for (size_t i = 0; i < inputShapes.size(); i++) {
+        const auto& parentEdgesAtPort = getParentEdgesAtPort(i);
+        const auto& parentEdgeAtPort = parentEdgesAtPort[0];
+        const auto& child = parentEdgeAtPort->getChild();
+        const auto type = child->getType();
+        //if (type == ov::intel_cpu::Type::Convolution) {
+        //    continue;
+        //}
+
+        const auto blockedDesc = parentEdgeAtPort->getMemory().GetDescWithType<BlockedMemoryDesc>();
+        auto dims = blockedDesc->getBlockDims();
+
+        auto result = edgeToBlockedShape(parentEdgeAtPort);
+        input_blocked_shapes.push_back(result);
+
+        //input_blocked_shapes.push_back(edgeToBlockedShape(getParentEdgesAtPort(i)[0]));
+    }
 
     ngraph::snippets::op::Subgraph::BlockedShapeVector output_blocked_shapes;
     for (size_t i = 0; i < outputShapes.size(); i++)

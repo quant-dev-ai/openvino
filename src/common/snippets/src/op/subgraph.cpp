@@ -151,7 +151,9 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
     AxisVector baseOrder;
 
     // TODO: improve later
-    auto inputShapesWithoutSpecificConstant = { inputShapes[0], inputShapes[2] };
+    auto inputShapesWithoutSpecificConstant = (inputShapes.size() < 5ull) ?
+        BlockedShapeVector{ inputShapes[0], inputShapes[2] } :
+        BlockedShapeVector{ inputShapes[0], inputShapes[2], inputShapes[4] };
     std::tie(baseShape, baseOrder, std::ignore) = getMaxRankBlockedShape(inputShapesWithoutSpecificConstant);
 
     const auto baseRank = baseShape.size();
@@ -164,13 +166,14 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
         std::tie(inShape, inOrder, inType) = blockedShape;
 
         // TODO: will be improved later
-        if (i == 1ul) {
+        if ((i == 1ul) || (i == 3ul)) {
             m_body->replace_parameter(i, std::make_shared<opset1::Parameter>(inType, inShape));
             continue;
         }
 
         const auto inRank = inShape.size();
-        NODE_VALIDATION_CHECK(this, inRank <= baseRank, "Input rank can't be larger than output rank in snippets.");
+        // 5D tensor on weigths
+        // NODE_VALIDATION_CHECK(this, inRank <= baseRank, "Input rank can't be larger than output rank in snippets.");
         if (inRank < baseRank) {
             Shape newShape(baseRank, 1);
             // todo: more complicated logics is needed if we want to merge smth else than blocked and planar

@@ -8,6 +8,9 @@
 #include <snippets/itt.hpp>
 #include "snippets/op/subgraph.hpp"
 
+#include <ngraph/pattern/op/wrap_type.hpp>
+#include <ngraph/pattern/op/or.hpp>
+
 #include <ngraph/opsets/opset1.hpp>
 #include <ngraph/opsets/opset5.hpp>
 #include <ngraph/rt_info.hpp>
@@ -131,7 +134,7 @@ bool decompose_1x1(const std::shared_ptr<ngraph::opset1::Convolution>& convoluti
     auto next = biases_add->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
     fill_body(next, true, nodes);
     // TODO: to debug only
-    assert(nodes.size() == 2ul);
+    //assert(nodes.size() == 2ul);
 
     assert(nodes.size() > 0);
 
@@ -193,7 +196,7 @@ bool decompose_1x1(const std::shared_ptr<ngraph::opset1::Convolution>& convoluti
     return true;
 }
 
-bool decompose_dw(const std::shared_ptr<ngraph::opset1::Convolution>& convolution) {
+bool decompose_dw(const std::shared_ptr<ngraph::opset1::GroupConvolution>& convolution) {
     const auto biases_add = convolution->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
     const auto biases = biases_add->get_input_node_shared_ptr(1ul);
 
@@ -314,7 +317,21 @@ bool decompose_dw(const std::shared_ptr<ngraph::opset1::Convolution>& convolutio
 ConvolutionDecomposition::ConvolutionDecomposition() {
     MATCHER_SCOPE(ConvolutionDecomposition);
 
-    auto matcher = ngraph::pattern::wrap_type<opset1::Convolution>();
+    //auto matcher = ngraph::pattern::wrap_type<opset1::Convolution>();
+
+    //auto matcher = ngraph::pattern::wrap_type<opset1::Convolution>({
+    //    ngraph::pattern::wrap_type<opset1::Multiply>(),
+    //    std::make_shared<pattern::op::Or>(OutputVector {
+    //        pattern::wrap_type<opset1::Multiply>(),
+    //        pattern::wrap_type<opset1::FakeQuantize>()
+    //    })
+    //    });
+
+
+    auto convolution = pattern::wrap_type<opset1::Convolution>();
+    auto groupConvolution = pattern::wrap_type<opset1::GroupConvolution>();
+    auto matcher = std::make_shared<pattern::op::Or>(OutputVector{ convolution, groupConvolution });
+
     ngraph::graph_rewrite_callback callback = [&](ngraph::pattern::Matcher &m) -> bool {
         OV_ITT_SCOPED_TASK(ngraph::pass::itt::domains::ConvolutionDecomposition, "Snippets::ConvolutionDecomposition")
         auto root = m.get_match_root();
@@ -323,14 +340,13 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         }
 
         const auto convolution = as_type_ptr<opset1::Convolution>(root);
-
-        // TODO: not completed
-        const auto weights = convolution->get_input_node_shared_ptr(1);
-        const auto weights_shape = weights->output(0).get_shape();
-        if (weights_shape.size() == 4ull) {
+        if (convolution != nullptr) {
             return decompose_1x1(convolution);
-        } else if (weights_shape.size() == 5ull) {
-            return decompose_dw(convolution);
+        }
+
+        const auto group_convolution = as_type_ptr<opset1::GroupConvolution>(root);
+        if (group_convolution != nullptr) {
+            return decompose_dw(group_convolution);
         }
 
         throw ov::Exception("unexpected convolution");
