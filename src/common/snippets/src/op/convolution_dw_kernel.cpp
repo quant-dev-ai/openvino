@@ -13,11 +13,22 @@ namespace ngraph {
 namespace snippets {
 namespace op {
 
+namespace {
+std::vector<Output<Node>> get_inputs(
+    const std::vector<Output<Node>>& data_batch,
+    const Output<Node>& filters,
+    const Output<Node>& biases) {
+    std::vector<Output<Node>> result(data_batch);
+    result.push_back(filters);
+    result.push_back(biases);
+    return result;
+}
+} // namespace
 ConvolutionDwKernel::ConvolutionDwKernel(
-        const Output<Node>& data_batch,
+        const std::vector<Output<Node>>& data_batch,
         const Output<Node>& filters,
         const Output<Node>& biases,
-        const size_t outputs_size) : Op({data_batch, filters, biases}), outputs_size(outputs_size) {
+        const size_t outputs_size) : Op(get_inputs(data_batch, filters, biases)), outputs_size(outputs_size) {
     constructor_validate_and_infer_types();
 }
 
@@ -33,8 +44,12 @@ void ConvolutionDwKernel::validate_and_infer_types() {
 }
 
 std::shared_ptr<Node> ConvolutionDwKernel::clone_with_new_inputs(const OutputVector& inputs) const {
-    assert(inputs.size() == 3ul);
-    return std::make_shared<ConvolutionDwKernel>(inputs[0], inputs[1], inputs[2], outputs_size);
+    assert(inputs.size() >= 3ul);
+    std::vector<Output<Node>> results;
+    for (auto i = 0ull; i < inputs.size() - 2ull; ++i) {
+        results.push_back(inputs[i]);
+    }
+    return std::make_shared<ConvolutionDwKernel>(results, inputs[inputs.size() - 2ull], inputs[inputs.size() - 1ull], outputs_size);
 }
 
 } // namespace op

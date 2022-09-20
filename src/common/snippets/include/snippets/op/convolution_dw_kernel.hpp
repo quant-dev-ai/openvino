@@ -17,7 +17,7 @@ public:
     OPENVINO_OP("ConvolutionDwKernel", "SnippetsOpset");
 
     ConvolutionDwKernel(
-            const Output<Node>& data_batch,
+            const std::vector<Output<Node>>& data_batch,
             const Output<Node>& filters,
             const Output<Node>& biases,
             const size_t outputs_size);
