@@ -184,6 +184,38 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
             regs = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
         }
 
+        if (n->get_friendly_name() == "convolution1") {
+            regs = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+        }
+
+        if (n->get_friendly_name() == "clamp1_0") {
+            regs = { 0 };
+        }
+        if (n->get_friendly_name() == "clamp1_1") {
+            regs = { 1 };
+        }
+        if (n->get_friendly_name() == "clamp1_2") {
+            regs = { 2 };
+        }
+        if (n->get_friendly_name() == "clamp1_3") {
+            regs = { 3 };
+        }
+        if (n->get_friendly_name() == "clamp1_4") {
+            regs = { 4 };
+        }
+        if (n->get_friendly_name() == "clamp1_5") {
+            regs = { 5 };
+        }
+        if (n->get_friendly_name() == "clamp1_6") {
+            regs = { 6 };
+        }
+        if (n->get_friendly_name() == "clamp1_7") {
+            regs = { 7 };
+        }
+        if (n->get_friendly_name() == "clamp1_8") {
+            regs = { 8 };
+        }
+
         rt["reginfo"] = regs;
     }
 

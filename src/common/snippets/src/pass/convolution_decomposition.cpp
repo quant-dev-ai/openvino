@@ -27,6 +27,8 @@
 #include "snippets/op/conditional_jump.hpp"
 #include "snippets/op/convolution_1x1_kernel.hpp"
 #include "snippets/op/convolution_dw_kernel.hpp"
+#include "snippets/op/convolution_merged_1x1_kernel.hpp"
+#include "snippets/op/convolution_merged_dw_kernel.hpp"
 #include "snippets/op/label.hpp"
 #include "snippets/op/loop.hpp"
 #include "snippets/op/auto_loop.hpp"
@@ -223,7 +225,7 @@ bool decompose_1x1_by_filter(
     const auto input_shape = convolution->get_input_shape(0);
     const auto output_shape = convolution->output(0).get_shape();
 
-    const auto convolution_kernel = std::make_shared<snippets::op::Convolution1x1Kernel>(
+    const auto convolution_kernel = std::make_shared<snippets::op::ConvolutionMerged1x1Kernel>(
         parent,
         convolution->get_input_node_shared_ptr(1),
         biases,
@@ -252,7 +254,7 @@ bool decompose_1x1_by_filter(
         inputs.push_back(last1);
     }
 
-    const auto convolution_dw_kernel = std::make_shared<snippets::op::ConvolutionDwKernel>(
+    const auto convolution_dw_kernel = std::make_shared<snippets::op::ConvolutionMergedDwKernel>(
         inputs,
         group_convolution->get_input_node_shared_ptr(1),
         group_biases,
@@ -260,10 +262,17 @@ bool decompose_1x1_by_filter(
     ngraph::copy_runtime_info(group_convolution, convolution_dw_kernel);
     convolution_dw_kernel->set_friendly_name(group_convolution->get_friendly_name());
 
-    for (auto i = 1ull; i < 9ull; ++i) {
+    std::map<size_t, std::string> original_names;
+    for (auto i = 0ull; i < 9ull; ++i) {
         auto output = convolution_kernel->output(i);
-        for (const auto& node : nodes1) {
-            auto new_node = node->clone_with_new_inputs({ output });
+        for (auto node_index = 0ull; node_index < nodes1.size(); ++node_index) {
+            const auto& node = nodes1[node_index];
+            if (i == 0) {
+                original_names[node_index] = node->get_friendly_name();
+            }
+
+            auto new_node = i == 0 ? node : node->clone_with_new_inputs({ output });
+            new_node->set_friendly_name(original_names[node_index] + "_" + std::to_string(i));
             output = new_node->output(0);
         }
         convolution_dw_kernel->input(i).replace_source_output(output);
@@ -474,7 +483,7 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         //    return decompose_dw(group_convolution);
         //}
 
-        //throw ov::Exception("unexpected convolution");
+        throw ov::Exception("unexpected convolution");
     };
 
     register_matcher(std::make_shared<ngraph::pattern::Matcher>(matcher, matcher_name), callback);

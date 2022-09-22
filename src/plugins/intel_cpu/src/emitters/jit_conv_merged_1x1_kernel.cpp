@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "jit_conv_dw_kernel.hpp"
+#include "jit_conv_merged_1x1_kernel.hpp"
 
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
 #include <ngraph/opsets/opset1.hpp>
-#include "snippets/op/convolution_dw_kernel.hpp"
+#include "snippets/op/convolution_1x1_kernel.hpp"
 #include "snippets/op/loop.hpp"
 
 using namespace Xbyak;
@@ -15,7 +15,7 @@ using namespace Xbyak;
 namespace ov {
 namespace intel_cpu {
 
-ConvolutionDwKernelEmitter::ConvolutionDwKernelEmitter(
+ConvolutionMerged1x1KernelEmitter::ConvolutionMerged1x1KernelEmitter(
         dnnl::impl::cpu::x64::jit_generator* h,
         dnnl::impl::cpu::x64::cpu_isa_t isa,
         const std::shared_ptr<ov::Node>& n) : jit_emitter(h, isa, n) {
@@ -70,7 +70,7 @@ ConvolutionDwKernelEmitter::ConvolutionDwKernelEmitter(
     //}
 }
 
-void ConvolutionDwKernelEmitter::emit_impl(const std::vector<size_t>& in,
+void ConvolutionMerged1x1KernelEmitter::emit_impl(const std::vector<size_t>& in,
                             const std::vector<size_t>& out,
                             const std::vector<size_t>& pool,
                             const std::vector<size_t>& gpr,
@@ -87,8 +87,69 @@ void ConvolutionDwKernelEmitter::emit_impl(const std::vector<size_t>& in,
     }
 }
 
+namespace {
+size_t get_value_offset(const size_t val_index, const size_t ch_index, const size_t filters_count, const size_t vlen) {
+    return (val_index * 8 + (ch_index % 8) + (ch_index / 8) * 112 * 112 * 8) * 4;
+}
+} // namespace
+
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
-void ConvolutionDwKernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
+    assert(in.size() == 3ul);
+    //assert(out.size() == 1ul);
+    if (out.size() != 1ul) {
+        std::cout << "ConvolutionKernelEmitter::emit_isa: why we have more outputs?" << std::endl;
+    }
+
+    insert_marker(MARKER_CONVOLUTION_KERNEL);
+
+    int data_reg_index = in[0];
+    int weights_reg_index = in[1];
+    int biases_reg_index = in[2];
+
+    using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
+            Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
+
+    const size_t offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+    // TODO: get from shape
+    //const auto in_channels = weights_shape[1ul];
+    const auto in_channels = 16ull;
+
+    const auto data_gp = Reg64(data_reg_index);
+    const auto weight_gp = Reg64(weights_reg_index);
+    const auto biases_gp = Reg64(biases_reg_index);
+
+    auto data = Vmm(15);
+
+    //std::vector<Vmm> weights = {Vmm(12), Vmm(13), Vmm(14)};
+    auto weights = Vmm(12);
+
+    std::vector<Vmm> accums(out.size());
+    for (auto i = 0ull; i < out.size(); ++i) {
+        accums[i] = Vmm(out[i]);
+    }
+
+    // 1 output data for 1..8 output channels
+    for (auto w = 0ull; w < 3ull; ++w) {
+        for (auto h = 0ull; h < 3ull; ++h) {
+        }
+    }
+
+    //for (auto i == 0ull; i < 9ull; ++i) {
+    //    h->uni_vbroadcastss(data[i], h->ptr[data_gp + i * 32ull]);
+    //}
+
+    for (auto in_ch_pack_index = 0ull; in_ch_pack_index < 2ull; ++in_ch_pack_index) {
+        h->uni_vmovups(weights, h->ptr[weight_gp + in_ch_pack_index * 32ull]);
+        for (auto h_dim = 0ull; h_dim < 3ull; ++h_dim) {
+            for (auto w_dim = 0ull; w_dim < 3ull; ++w_dim) {
+                h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * h_dim)]);
+                h->uni_vfmadd231ps(accums[h_dim * 3ull + w_dim], weights, data);
+            }
+        }
+    }
+
+    insert_marker(MARKER_CONVOLUTION_KERNEL);
 }
 
 }   // namespace intel_cpu
