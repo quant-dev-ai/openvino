@@ -451,7 +451,7 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
             while (outputs.size() != 0) {
                 auto output = outputs.top();
                 outputs.pop();
-                auto& target_inputs = output.get_target_inputs();
+                const auto& target_inputs = output.get_target_inputs();
                 assert(target_inputs.size() == 1ull);
 
                 auto node = target_inputs.begin()->get_node()->shared_from_this();

@@ -103,21 +103,21 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 
-    int data_reg_index = in[0];
-    int weights_reg_index = in[1];
-    int biases_reg_index = in[2];
+    //int data_reg_index = in[0];
+    //int weights_reg_index = in[1];
+    //int biases_reg_index = in[2];
 
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
 
-    const size_t offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
+    //const size_t offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
     // TODO: get from shape
     //const auto in_channels = weights_shape[1ul];
-    const auto in_channels = 16ull;
+    //const auto in_channels = 16ull;
 
     const auto data_gp = Reg64(data_reg_index);
     const auto weight_gp = Reg64(weights_reg_index);
-    const auto biases_gp = Reg64(biases_reg_index);
+    //const auto biases_gp = Reg64(biases_reg_index);
 
     auto data = Vmm(15);
 

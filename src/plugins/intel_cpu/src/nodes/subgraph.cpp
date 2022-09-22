@@ -365,8 +365,8 @@ void Snippet::define_schedule() {
     for (size_t i = 0; i < inputShapes.size(); i++) {
         const auto& parentEdgesAtPort = getParentEdgesAtPort(i);
         const auto& parentEdgeAtPort = parentEdgesAtPort[0];
-        const auto& child = parentEdgeAtPort->getChild();
-        const auto type = child->getType();
+        //const auto& child = parentEdgeAtPort->getChild();
+        //const auto type = child->getType();
         //if (type == ov::intel_cpu::Type::Convolution) {
         //    continue;
         //}

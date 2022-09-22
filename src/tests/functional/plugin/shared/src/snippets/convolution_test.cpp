@@ -61,7 +61,7 @@ const std::vector<LayerTestsDefinitions::ConvolutionTestValues::ConvolutionParam
     }
     return result;
 }
-}
+} // namespace
 
 void ConvolutionTest::SetUp() {
     // not initialized by default
