@@ -104,8 +104,8 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 
     //int data_reg_index = in[0];
-    //int weights_reg_index = in[1];
-    //int biases_reg_index = in[2];
+    int weights_reg_index = in[1];
+    int biases_reg_index = in[2];
 
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
@@ -117,7 +117,7 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
 
     const auto data_gp = Reg64(data_reg_index);
     const auto weight_gp = Reg64(weights_reg_index);
-    //const auto biases_gp = Reg64(biases_reg_index);
+    const auto biases_gp = Reg64(biases_reg_index);
 
     auto data = Vmm(15);
 
@@ -127,7 +127,9 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
     std::vector<Vmm> accums(out.size());
     for (auto i = 0ull; i < out.size(); ++i) {
         accums[i] = Vmm(out[i]);
+        h->uni_vmovups(accums[i], h->ptr[biases_gp + i * 32ull]);
     }
+
 
     // 1 output data for 1..8 output channels
     for (auto w = 0ull; w < 3ull; ++w) {
