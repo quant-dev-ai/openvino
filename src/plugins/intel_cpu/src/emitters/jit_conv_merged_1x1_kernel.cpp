@@ -146,6 +146,27 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
         for (auto h_dim = 0ull; h_dim < 3ull; ++h_dim) {
             for (auto w_dim = 0ull; w_dim < 3ull; ++w_dim) {
                 h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * h_dim)]);
+                h->uni_vbroadcastss(data, h->ptr[data_gp + (8 * 32ull)]);
+                h->uni_vbroadcastss(data, h->ptr[data_gp + (16 * 32ull)]);
+                h->uni_vbroadcastss(data, h->ptr[data_gp + (32 * 32ull)]);
+
+                auto filter_index = 0ull;
+                auto in_channels = 16ull;
+                auto value_offset = get_value_offset(0, filter_index, in_channels, 32ull);
+                h->uni_vbroadcastss(data, h->ptr[data_gp + value_offset]);
+
+                filter_index = 0ull;
+                in_channels = 16ull;
+                value_offset = get_value_offset(112, filter_index, in_channels, 32ull);
+                h->uni_vbroadcastss(data, h->ptr[data_gp + value_offset]);
+
+                filter_index = 0ull;
+                in_channels = 16ull;
+                value_offset = get_value_offset(224, filter_index, in_channels, 32ull);
+                h->uni_vbroadcastss(data, h->ptr[data_gp + value_offset]);
+
+                h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * h_dim)]);
+                h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * h_dim)]);
                 h->uni_vfmadd231ps(accums[h_dim * 3ull + w_dim], weights, data);
             }
         }
