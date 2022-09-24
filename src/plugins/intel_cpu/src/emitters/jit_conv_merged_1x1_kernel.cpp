@@ -103,7 +103,7 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 
-    //int data_reg_index = in[0];
+    int data_reg_index = in[0];
     int weights_reg_index = in[1];
     int biases_reg_index = in[2];
 
