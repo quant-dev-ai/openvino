@@ -137,40 +137,29 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
         }
     }
 
-    //for (auto i == 0ull; i < 9ull; ++i) {
-    //    h->uni_vbroadcastss(data[i], h->ptr[data_gp + i * 32ull]);
-    //}
-
-    for (auto in_ch_pack_index = 0ull; in_ch_pack_index < 2ull; ++in_ch_pack_index) {
-        h->uni_vmovups(weights, h->ptr[weight_gp + in_ch_pack_index * 32ull]);
+    for (auto in_ch = 0ull; in_ch < 16ull; ++in_ch) {
+        h->uni_vmovups(weights, h->ptr[weight_gp + in_ch * 32ull]);
         for (auto h_dim = 0ull; h_dim < 3ull; ++h_dim) {
             for (auto w_dim = 0ull; w_dim < 3ull; ++w_dim) {
-                h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * h_dim)]);
-                h->uni_vbroadcastss(data, h->ptr[data_gp + (8 * 32ull)]);
-                h->uni_vbroadcastss(data, h->ptr[data_gp + (16 * 32ull)]);
-                h->uni_vbroadcastss(data, h->ptr[data_gp + (32 * 32ull)]);
+                //h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * 32ull * h_dim)]);
 
-                auto filter_index = 0ull;
-                auto in_channels = 16ull;
-                auto value_offset = get_value_offset(0, filter_index, in_channels, 32ull);
+                const auto value_offset = get_value_offset(w_dim + 112ull * h_dim, in_ch, 16ull, 32ull);
                 h->uni_vbroadcastss(data, h->ptr[data_gp + value_offset]);
 
-                filter_index = 0ull;
-                in_channels = 16ull;
-                value_offset = get_value_offset(112, filter_index, in_channels, 32ull);
-                h->uni_vbroadcastss(data, h->ptr[data_gp + value_offset]);
-
-                filter_index = 0ull;
-                in_channels = 16ull;
-                value_offset = get_value_offset(224, filter_index, in_channels, 32ull);
-                h->uni_vbroadcastss(data, h->ptr[data_gp + value_offset]);
-
-                h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * h_dim)]);
-                h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * h_dim)]);
                 h->uni_vfmadd231ps(accums[h_dim * 3ull + w_dim], weights, data);
             }
         }
     }
+
+    //for (auto h_dim = 0ull; h_dim < 3ull; ++h_dim) {
+    //    for (auto w_dim = 0ull; w_dim < 3ull; ++w_dim) {
+    //        h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * 32ull * h_dim)]);
+    //        for (auto in_ch = 0ull; in_ch < 16ull; ++in_ch) {
+    //            h->uni_vmovups(weights, h->ptr[weight_gp + in_ch * 32ull]);
+    //            h->uni_vfmadd231ps(accums[h_dim * 3ull + w_dim], weights, data);
+    //        }
+    //    }
+    //}
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 }
