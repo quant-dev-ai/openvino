@@ -240,7 +240,9 @@ bool decompose_1x1_by_filter(
     convolution_kernel->set_friendly_name(convolution->get_friendly_name());
     convolution_kernel->get_rt_info()["order"] = static_cast<size_t>(2ull);
 
-    auto convolution_child_input = *convolution->output(0).get_target_inputs().begin();
+    const auto convolution_after = biases_add->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
+
+    auto convolution_child_input = *biases_add->output(0).get_target_inputs().begin();
     convolution_child_input.replace_source_output(convolution_kernel->output(0));
     convolution->get_input_source_output(0).remove_target_input(convolution->input(0));
     convolution->get_input_source_output(1).remove_target_input(convolution->input(1));
@@ -248,7 +250,7 @@ bool decompose_1x1_by_filter(
 
 
     std::vector<std::shared_ptr<Node>> nodes1;
-    get_nodes(biases_add->output(0).get_target_inputs().begin()->get_node()->shared_from_this(), group_convolution, nodes1);
+    get_nodes(convolution_after, group_convolution, nodes1);
     assert(nodes1.size() > 0);
 
     auto first1 = nodes1[0];
@@ -300,7 +302,9 @@ bool decompose_1x1_by_filter(
     ngraph::copy_runtime_info(group_convolution, convolution_dw_kernel);
     convolution_dw_kernel->set_friendly_name(group_convolution->get_friendly_name());
 
-    auto group_convolution_child_input = *group_convolution->output(0).get_target_inputs().begin();
+    const auto group_convolution_after = group_biases_add->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
+
+    auto group_convolution_child_input = *group_biases_add->output(0).get_target_inputs().begin();
     group_convolution_child_input.replace_source_output(convolution_dw_kernel->output(0));
     group_convolution->get_input_source_output(0).remove_target_input(group_convolution->input(0));
     group_convolution->get_input_source_output(1).remove_target_input(group_convolution->input(1));
@@ -310,8 +314,7 @@ bool decompose_1x1_by_filter(
     //after_group_convolution->input(0).replace_source_output(convolution_dw_kernel->output(0));
 
     std::vector<std::shared_ptr<Node>> nodes2;
-    auto child = group_biases_add->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
-    get_nodes_before_result(child, false, nodes2);
+    get_nodes_before_result(group_convolution_after, false, nodes2);
     assert(nodes2.size() > 0);
 
     auto first2 = nodes2[0];

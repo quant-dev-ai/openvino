@@ -216,6 +216,45 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
             regs = { 8 };
         }
 
+        if (n->get_friendly_name() == "clamp2_0") {
+            regs = { 0 };
+        }
+        if (n->get_friendly_name() == "clamp2_1") {
+            regs = { 1 };
+        }
+        if (n->get_friendly_name() == "clamp2_2") {
+            regs = { 2 };
+        }
+        if (n->get_friendly_name() == "clamp2_3") {
+            regs = { 3 };
+        }
+        if (n->get_friendly_name() == "clamp2_4") {
+            regs = { 4 };
+        }
+        if (n->get_friendly_name() == "clamp2_5") {
+            regs = { 5 };
+        }
+        if (n->get_friendly_name() == "clamp2_6") {
+            regs = { 6 };
+        }
+        if (n->get_friendly_name() == "clamp2_7") {
+            regs = { 7 };
+        }
+        if (n->get_friendly_name() == "clamp2_8") {
+            regs = { 8 };
+        }
+
+        if ((n->get_friendly_name() == "Store_3022_0") ||
+            (n->get_friendly_name() == "Store_3022_1") ||
+            (n->get_friendly_name() == "Store_3022_2") ||
+            (n->get_friendly_name() == "Store_3022_3") ||
+            (n->get_friendly_name() == "Store_3022_4") ||
+            (n->get_friendly_name() == "Store_3022_5") ||
+            (n->get_friendly_name() == "Store_3022_6") ||
+            (n->get_friendly_name() == "Store_3022_7")) {
+            regs = { 5 };
+        }
+
         rt["reginfo"] = regs;
     }
 
