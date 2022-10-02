@@ -32,9 +32,13 @@ auto ngraph::snippets::getRegisters(std::shared_ptr<ngraph::Node>& n) -> ngraph:
         auto rt = input.get_source_output().get_node_shared_ptr()->get_rt_info();
         auto it_rt = rt.find("reginfo");
         if (it_rt != rt.end()) {
-            for (auto& reg : it_rt->second.as<std::vector<size_t>>()) {
-                rin.push_back(reg);
+            const auto& registers = it_rt->second.as<std::vector<size_t>>();
+            const auto output_index = input.get_source_output().get_index();
+            if (registers.size() <= output_index) {
+                throw ov::Exception("unexcepted registers count");
             }
+
+            rin.push_back(registers[output_index]);
         }
     }
     return std::make_pair(rin, rout);
