@@ -224,14 +224,27 @@ bool decompose_1x1_by_filter(
     // TODO: static
     const auto input_shape = convolution->get_input_shape(0);
     const auto output_shape = convolution->output(0).get_shape();
+    const auto filter_volume = 9ull;
+    const auto iterations_count = 3ull;
+
+    const auto loop = std::make_shared<snippets::op::Loop>(parent, parent, iterations_count);
+    loop->set_friendly_name(convolution->get_friendly_name() + "_loop");
+    loop->get_rt_info()["order"] = static_cast<size_t>(1ull);
 
     const auto convolution_kernel = std::make_shared<snippets::op::ConvolutionMerged1x1Kernel>(
-        parent,
+        loop,
         convolution->get_input_node_shared_ptr(1),
         biases,
-        9ull);
+        filter_volume);
     ngraph::copy_runtime_info(convolution, convolution_kernel);
     convolution_kernel->set_friendly_name(convolution->get_friendly_name());
+    convolution_kernel->get_rt_info()["order"] = static_cast<size_t>(2ull);
+
+    auto convolution_child_input = *convolution->output(0).get_target_inputs().begin();
+    convolution_child_input.replace_source_output(convolution_kernel->output(0));
+    convolution->get_input_source_output(0).remove_target_input(convolution->input(0));
+    convolution->get_input_source_output(1).remove_target_input(convolution->input(1));
+    //convolution->output(0).remove_target_input(*convolution->output(0).get_target_inputs().begin());
 
 
     std::vector<std::shared_ptr<Node>> nodes1;
@@ -244,26 +257,20 @@ bool decompose_1x1_by_filter(
     //// TODO: to debug only
     //assert(is_type<opset1::Result>(return_input.get_node()));
 
-    first1->input(0).replace_source_output(convolution_kernel->output(0));
+    // TODO: do we really need it?
+    //first1->input(0).replace_source_output(convolution_kernel->output(0));
 
     const auto group_biases_add = group_convolution->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
     const auto group_biases = group_biases_add->get_input_node_shared_ptr(1ul);
 
-    std::vector<Output<Node>> inputs;
-    for (auto i = 0ull; i < convolution_kernel->get_output_size(); ++i) {
-        inputs.push_back(last1);
-    }
-
-    const auto convolution_dw_kernel = std::make_shared<snippets::op::ConvolutionMergedDwKernel>(
-        inputs,
-        group_convolution->get_input_node_shared_ptr(1),
-        group_biases,
-        1ull);
-    ngraph::copy_runtime_info(group_convolution, convolution_dw_kernel);
-    convolution_dw_kernel->set_friendly_name(group_convolution->get_friendly_name());
+    //std::vector<Output<Node>> inputs;
+    //for (auto i = 0ull; i < convolution_kernel->get_output_size(); ++i) {
+    //    inputs.push_back(last1);
+    //}
 
     std::map<size_t, std::string> original_names;
-    for (auto i = 0ull; i < 9ull; ++i) {
+    std::vector<Output<Node>> convolution_dw_kernel_inputs;
+    for (auto i = 0ull; i < filter_volume; ++i) {
         auto output = convolution_kernel->output(i);
         for (auto node_index = 0ull; node_index < nodes1.size(); ++node_index) {
             const auto& node = nodes1[node_index];
@@ -274,17 +281,79 @@ bool decompose_1x1_by_filter(
             auto new_node = i == 0 ? node : node->clone_with_new_inputs({ output });
             new_node->set_friendly_name(original_names[node_index] + "_" + std::to_string(i));
             output = new_node->output(0);
+
+            if (i == 0) {
+                while (output.get_target_inputs().size() != 0ull) {
+                    output.remove_target_input(*output.get_target_inputs().begin());
+                }
+            }
         }
-        convolution_dw_kernel->input(i).replace_source_output(output);
+
+        convolution_dw_kernel_inputs.push_back(output);
     }
+
+    const auto convolution_dw_kernel = std::make_shared<snippets::op::ConvolutionMergedDwKernel>(
+        convolution_dw_kernel_inputs,
+        group_convolution->get_input_node_shared_ptr(1),
+        group_biases,
+        filter_volume);
+    ngraph::copy_runtime_info(group_convolution, convolution_dw_kernel);
+    convolution_dw_kernel->set_friendly_name(group_convolution->get_friendly_name());
+
+    auto group_convolution_child_input = *group_convolution->output(0).get_target_inputs().begin();
+    group_convolution_child_input.replace_source_output(convolution_dw_kernel->output(0));
+    group_convolution->get_input_source_output(0).remove_target_input(group_convolution->input(0));
+    group_convolution->get_input_source_output(1).remove_target_input(group_convolution->input(1));
+    //group_convolution->output(0).remove_target_input(*group_convolution->output(0).get_target_inputs().begin());
 
     //auto after_group_convolution = group_convolution->output(0).get_target_inputs().begin()->get_node();
     //after_group_convolution->input(0).replace_source_output(convolution_dw_kernel->output(0));
 
-    const auto& target_inputs = group_biases_add->output(0).get_target_inputs();
-    //assert(target_inputs.size() == 1ull);
-    const auto input = target_inputs.begin();
-    input->replace_source_output(convolution_dw_kernel->output(0));
+    std::vector<std::shared_ptr<Node>> nodes2;
+    auto child = group_biases_add->output(0).get_target_inputs().begin()->get_node()->shared_from_this();
+    get_nodes_before_result(child, false, nodes2);
+    assert(nodes2.size() > 0);
+
+    auto first2 = nodes2[0];
+    auto last2 = nodes2.back();
+
+    const auto& result_target_inputs = last2->output(0).get_target_inputs();
+
+    std::vector<Output<Node>> conditional_jump_inputs(filter_volume);
+    for (auto i = 0ull; i < filter_volume; ++i) {
+        auto output = convolution_dw_kernel->output(i);
+        for (auto node_index = 0ull; node_index < nodes2.size(); ++node_index) {
+            const auto& node = nodes2[node_index];
+            if (i == 0) {
+                original_names[node_index] = node->get_friendly_name();
+            }
+
+            auto new_node = i == 0 ? node : node->clone_with_new_inputs({ output });
+            new_node->set_friendly_name(original_names[node_index] + "_" + std::to_string(i));
+            output = new_node->output(0);
+
+            if (i == 0) {
+                while (output.get_target_inputs().size() != 0ull) {
+                    output.remove_target_input(*output.get_target_inputs().begin());
+                }
+            }
+        }
+        conditional_jump_inputs[i] = output;
+    }
+    const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(conditional_jump_inputs);
+
+    //for (auto i = 0ull; i < filter_volume; ++i) {
+    //    auto source_output = conditional_jump->input(i).get_source_output();
+    //    conditional_jump->input(i).replace_source_output(source_output);
+    //}
+
+    conditional_jump->set_friendly_name(convolution->get_friendly_name() + "_jump");
+    conditional_jump->get_rt_info()["order"] = static_cast<size_t>(3ull);
+
+    loop->input(1).replace_source_output(conditional_jump->output(0));
+
+    const auto result_input = result_target_inputs.begin();
+    result_input->replace_source_output(conditional_jump->output(1));
 
     convolution->clear_control_dependents();
     convolution->clear_control_dependencies();
@@ -483,7 +552,7 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         //    return decompose_dw(group_convolution);
         //}
 
-        throw ov::Exception("unexpected convolution");
+        //throw ov::Exception("unexpected convolution");
     };
 
     register_matcher(std::make_shared<ngraph::pattern::Matcher>(matcher, matcher_name), callback);
