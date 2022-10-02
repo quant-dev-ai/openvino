@@ -36,9 +36,8 @@ private:
     bool shouldPostIncrement;
 
     ov::op::PadType auto_pad;
-    ov::Shape weights_shape;
 
-    int data_reg_index;
+    ov::Shape filter_shape;
     int weights_reg_index;
     int biases_reg_index;
 };

@@ -98,7 +98,7 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
         const auto& convolution_param = convolution_params[i];
         parent = make_convolution(parent, convolution_param, convolution_param.weights_shape, i, convolution_params.size());
 
-        parent = std::make_shared<ngraph::opset1::Clamp>(parent, 0ul, 999999ul);
+        parent = std::make_shared<ngraph::opset1::Clamp>(parent, 0, 999999999);
         parent->set_friendly_name("clamp" + (convolution_params.size() == 1ul ? "" : std::to_string(i + 1)));
     }
 

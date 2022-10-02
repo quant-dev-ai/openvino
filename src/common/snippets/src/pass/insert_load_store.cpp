@@ -15,6 +15,8 @@
 #include <ngraph/rt_info.hpp>
 #include <ngraph/pattern/op/wrap_type.hpp>
 
+#include <snippets/op/broadcastmove.hpp>
+
 ngraph::snippets::pass::InsertLoad::InsertLoad() {
     MATCHER_SCOPE(InsertLoad);
     register_matcher(std::make_shared<ngraph::pattern::Matcher>(
@@ -27,11 +29,25 @@ ngraph::snippets::pass::InsertLoad::InsertLoad() {
             if (inputs.size() == 1ul) {
                 const auto input = inputs.begin();
                 const auto& input_node = input->get_node();
-                // TODO: workaround
+
+                // TODO: workaround: not completed
                 //if (is_type<opset1::MaxPool>(input_node)) {
                 if (is_type<opset1::MaxPool>(input_node) ||
+                    // Convolution data & Convolution weights
                     is_type<ngraph::opset1::Convolution>(input_node) ||
-                    (is_type<ngraph::opset1::Add>(input_node) && is_type<ngraph::opset1::Convolution>(input_node->get_input_node_shared_ptr(0)))) {
+                    // Convolution biases
+                    (
+                        is_type<ngraph::opset1::Add>(input_node) &&
+                        is_type<ngraph::opset1::Convolution>(input_node->get_input_node_shared_ptr(0))
+                    ) ||
+
+                    // GroupConvolution weights (GroupConvolution data has to be excluded)
+                    is_type<ngraph::opset1::GroupConvolution>(input_node) ||
+                    // GroupConvolution biases
+                    (
+                        is_type<ngraph::opset1::Add>(input_node) &&
+                        is_type<ngraph::opset1::GroupConvolution>(input_node->get_input_node_shared_ptr(0))
+                    )) {
                     return false;
                 }
             }

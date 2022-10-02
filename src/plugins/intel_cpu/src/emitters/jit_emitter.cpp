@@ -69,8 +69,8 @@ std::set<InferenceEngine::Precision> jit_emitter::get_supported_precisions() {
 void jit_emitter::emitter_preamble(const std::vector<size_t> &in_idxs, const std::vector<size_t> &out_idxs,
                                    const std::vector<size_t> &pool_vec_idxs, const std::vector<size_t> &pool_gpr_idxs) const {
     using namespace Xbyak::util;
-    bool is_vec_input = (in_out_type_ == emitter_in_out_map::vec_to_vec) || (in_out_type_ == emitter_in_out_map::vec_to_gpr);
-    bool is_vec_output = (in_out_type_ == emitter_in_out_map::vec_to_vec) || (in_out_type_ == emitter_in_out_map::gpr_to_vec);
+    bool is_vec_input = (in_out_type_ == emitter_in_out_map::vec_to_vec) || (in_out_type_ == emitter_in_out_map::vec_to_gpr) || (in_out_type_ == emitter_in_out_map::mixed);
+    bool is_vec_output = (in_out_type_ == emitter_in_out_map::vec_to_vec) || (in_out_type_ == emitter_in_out_map::gpr_to_vec) || (in_out_type_ == emitter_in_out_map::mixed);
 
     for (auto idx : pool_vec_idxs)
         aux_vec_idxs.push_back(idx);

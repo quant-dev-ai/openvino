@@ -20,7 +20,9 @@ enum emitter_in_out_map {
     vec_to_vec,
     vec_to_gpr,
     gpr_to_vec,
-    gpr_to_gpr
+    gpr_to_gpr,
+    // TODO: workarround to support Convolution
+    mixed
 };
 
 struct emitter_context {

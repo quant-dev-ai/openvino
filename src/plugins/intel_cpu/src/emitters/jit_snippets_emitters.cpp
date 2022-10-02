@@ -63,6 +63,33 @@ void jit_container_emitter::map_abstract_registers(const std::vector<size_t> &ve
                 vecs_used.insert(in_physical_regs.begin(), in_physical_regs.end());
                 vecs_used.insert(out_physical_regs.begin(), out_physical_regs.end());
                 break;
+            case mixed: {
+                // Load Emitters
+                std::vector<size_t> in_vec_abstract_regs;
+                for (auto i = 0ull; i < 9ull; ++i) {
+                    in_vec_abstract_regs.push_back(in_abstract_regs[i]);
+                }
+                auto in_vec_physical_regs = std::move(abstract_to_physical(in_vec_abstract_regs, vec_pool));
+                vecs_used.insert(in_vec_physical_regs.begin(), in_vec_physical_regs.end());
+                for (auto reg : in_vec_physical_regs) {
+                    in_physical_regs.push_back(reg);
+                }
+
+                std::vector<size_t> in_gpr_abstract_regs;
+                for (auto i = 9ull; i < 11ull; ++i) {
+                    in_gpr_abstract_regs.push_back(in_abstract_regs[i]);
+                }
+                auto in_grp_physical_regs = std::move(abstract_to_physical(in_gpr_abstract_regs, gpr_pool));
+                gprs_used.insert(in_grp_physical_regs.begin(), in_grp_physical_regs.end());
+                for (auto reg : in_grp_physical_regs) {
+                    in_physical_regs.push_back(reg);
+                }
+
+                out_physical_regs = std::move(abstract_to_physical(out_abstract_regs, vec_pool));
+                vecs_used.insert(out_physical_regs.begin(), out_physical_regs.end());
+
+                break;
+            }
             default:
                 IE_THROW() << "Unhandled in_out type";
         }
