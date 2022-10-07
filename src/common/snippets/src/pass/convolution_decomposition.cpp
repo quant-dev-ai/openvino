@@ -225,7 +225,7 @@ bool decompose_1x1_by_filter(
     const auto input_shape = convolution->get_input_shape(0);
     const auto output_shape = convolution->output(0).get_shape();
     const auto filter_volume = 9ull;
-    const auto iterations_count = 3ull;
+    const auto iterations_count = 1ull;
 
     const auto loop = std::make_shared<snippets::op::Loop>(parent, parent, iterations_count);
     loop->set_friendly_name(convolution->get_friendly_name() + "_loop");
@@ -298,7 +298,9 @@ bool decompose_1x1_by_filter(
         convolution_dw_kernel_inputs,
         group_convolution->get_input_node_shared_ptr(1),
         group_biases,
-        filter_volume);
+        group_convolution->get_pads_begin(),
+        group_convolution->get_pads_end(),
+        1ul);
     ngraph::copy_runtime_info(group_convolution, convolution_dw_kernel);
     convolution_dw_kernel->set_friendly_name(group_convolution->get_friendly_name());
 
@@ -308,10 +310,6 @@ bool decompose_1x1_by_filter(
     group_convolution_child_input.replace_source_output(convolution_dw_kernel->output(0));
     group_convolution->get_input_source_output(0).remove_target_input(group_convolution->input(0));
     group_convolution->get_input_source_output(1).remove_target_input(group_convolution->input(1));
-    //group_convolution->output(0).remove_target_input(*group_convolution->output(0).get_target_inputs().begin());
-
-    //auto after_group_convolution = group_convolution->output(0).get_target_inputs().begin()->get_node();
-    //after_group_convolution->input(0).replace_source_output(convolution_dw_kernel->output(0));
 
     std::vector<std::shared_ptr<Node>> nodes2;
     get_nodes_before_result(group_convolution_after, false, nodes2);
@@ -322,33 +320,31 @@ bool decompose_1x1_by_filter(
 
     const auto& result_target_inputs = last2->output(0).get_target_inputs();
 
-    std::vector<Output<Node>> conditional_jump_inputs(filter_volume);
-    for (auto i = 0ull; i < filter_volume; ++i) {
-        auto output = convolution_dw_kernel->output(i);
-        for (auto node_index = 0ull; node_index < nodes2.size(); ++node_index) {
-            const auto& node = nodes2[node_index];
-            if (i == 0) {
-                original_names[node_index] = node->get_friendly_name();
-            }
-
-            auto new_node = i == 0 ? node : node->clone_with_new_inputs({ output });
-            new_node->set_friendly_name(original_names[node_index] + "_" + std::to_string(i));
-            output = new_node->output(0);
-
-            if (i == 0) {
-                while (output.get_target_inputs().size() != 0ull) {
-                    output.remove_target_input(*output.get_target_inputs().begin());
-                }
-            }
-        }
-        conditional_jump_inputs[i] = output;
-    }
-    const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(conditional_jump_inputs);
-
+    // TODO: not neccessary
+    //std::vector<Output<Node>> conditional_jump_inputs(filter_volume);
     //for (auto i = 0ull; i < filter_volume; ++i) {
-    //    auto source_output = conditional_jump->input(i).get_source_output();
-    //    conditional_jump->input(i).replace_source_output(source_output);
+    //    auto output = convolution_dw_kernel->output(i);
+    //    for (auto node_index = 0ull; node_index < nodes2.size(); ++node_index) {
+    //        const auto& node = nodes2[node_index];
+    //        if (i == 0) {
+    //            original_names[node_index] = node->get_friendly_name();
+    //        }
+
+    //        auto new_node = i == 0 ? node : node->clone_with_new_inputs({ output });
+    //        new_node->set_friendly_name(original_names[node_index] + "_" + std::to_string(i));
+    //        output = new_node->output(0);
+
+    //        if (i == 0) {
+    //            while (output.get_target_inputs().size() != 0ull) {
+    //                output.remove_target_input(*output.get_target_inputs().begin());
+    //            }
+    //        }
+    //    }
+    //    conditional_jump_inputs[i] = output;
     //}
+    //const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(conditional_jump_inputs);
+
+    const auto conditional_jump = std::make_shared<snippets::op::ConditionalJump>(std::vector<Output<Node>>{ last2->output(0) });
 
     conditional_jump->set_friendly_name(convolution->get_friendly_name() + "_jump");
     conditional_jump->get_rt_info()["order"] = static_cast<size_t>(3ull);

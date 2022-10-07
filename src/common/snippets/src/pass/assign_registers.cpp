@@ -159,7 +159,8 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
         } else if (const auto& param = ov::as_type_ptr<ov::op::v0::Parameter>(n)) {
             regs.push_back(f->get_parameter_index(param));
         } else if (const auto& store = ov::as_type_ptr<ngraph::snippets::op::Store>(n)) {
-            regs.push_back(f->get_result_index(store) + num_parameters);
+            //regs.push_back(f->get_result_index(store) + num_parameters);
+            regs = { 5 };
         } else {
             for (const auto& output : n->outputs()) {
                 auto allocated = physical_regs[output.get_tensor_ptr()];
@@ -244,7 +245,13 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
             regs = { 8 };
         }
 
-        if ((n->get_friendly_name() == "Store_3022_0") ||
+        std::cout << "assign_registers: " << n->get_type_name() << std::endl;
+        if ((n->get_type_name() == "ScalarStore") || (n->get_type_name() == "Store")) {
+            regs = { 5 };
+        }
+
+        if ((n->get_friendly_name() == "Store_3022") ||
+            (n->get_friendly_name() == "Store_3022_0") ||
             (n->get_friendly_name() == "Store_3022_1") ||
             (n->get_friendly_name() == "Store_3022_2") ||
             (n->get_friendly_name() == "Store_3022_3") ||

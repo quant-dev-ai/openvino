@@ -25,7 +25,8 @@ const std::vector<ConvolutionTestValues> testValues = {
                 {{1, 1}, {0, 0}, {0, 0}, {1, 1}},
                 {
                     {{1, 1}, {0, 0}, {0, 0}, {1, 1}, ov::op::PadType::EXPLICIT, ov::Shape{96, 16, 1, 1}},
-                    {{1, 1}, {1, 1}, {1, 1}, {1, 1}, ov::op::PadType::EXPLICIT, ov::Shape{96, 1, 3, 3}}
+                    //{{1, 1}, {1, 1}, {1, 1}, {1, 1}, ov::op::PadType::EXPLICIT, ov::Shape{96, 1, 3, 3}}
+                    {{1, 1}, {0, 0}, {0, 0}, {1, 1}, ov::op::PadType::EXPLICIT, ov::Shape{96, 1, 3, 3}}
                 },
         },
 };

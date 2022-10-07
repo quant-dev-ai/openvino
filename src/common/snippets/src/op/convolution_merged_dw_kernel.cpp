@@ -29,7 +29,9 @@ ConvolutionMergedDwKernel::ConvolutionMergedDwKernel(
         const std::vector<Output<Node>>& data_batch,
         const Output<Node>& filters,
         const Output<Node>& biases,
-        const size_t outputs_size) : Op(get_inputs(data_batch, filters, biases)), outputs_size(outputs_size) {
+        const ov::CoordinateDiff& pads_begin,
+        const ov::CoordinateDiff& pads_end,
+        const size_t outputs_size) : Op(get_inputs(data_batch, filters, biases)), pads_begin(pads_begin), pads_end(pads_end), outputs_size(outputs_size) {
     constructor_validate_and_infer_types();
 }
 
@@ -50,7 +52,15 @@ std::shared_ptr<Node> ConvolutionMergedDwKernel::clone_with_new_inputs(const Out
     for (auto i = 0ull; i < inputs.size() - 2ull; ++i) {
         results.push_back(inputs[i]);
     }
-    return std::make_shared<ConvolutionMergedDwKernel>(results, inputs[inputs.size() - 2ull], inputs[inputs.size() - 1ull], outputs_size);
+    return std::make_shared<ConvolutionMergedDwKernel>(results, inputs[inputs.size() - 2ull], inputs[inputs.size() - 1ull], pads_begin, pads_end, outputs_size);
+}
+
+ov::CoordinateDiff ConvolutionMergedDwKernel::get_pads_begin() const {
+    return pads_begin;
+}
+
+ov::CoordinateDiff ConvolutionMergedDwKernel::get_pads_end() const {
+    return pads_end;
 }
 
 } // namespace op

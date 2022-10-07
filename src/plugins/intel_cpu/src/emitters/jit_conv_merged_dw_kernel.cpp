@@ -4,6 +4,8 @@
 
 #include "jit_conv_merged_dw_kernel.hpp"
 
+#include <algorithm>
+
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
 #include <ngraph/opsets/opset1.hpp>
@@ -61,7 +63,8 @@ ConvolutionMergedDwKernelEmitter::ConvolutionMergedDwKernelEmitter(
     }
 
     const auto weights_shape = weights->get_shape();
-    assert(weights_shape.size() == 7ull);
+    // TODO: uncomment
+    //assert(weights_shape.size() == 7ull);
     filter_shape = { weights->get_shape()[3], weights->get_shape()[4] };
 
     //{
@@ -71,6 +74,9 @@ ConvolutionMergedDwKernelEmitter::ConvolutionMergedDwKernelEmitter(
     //    }
     //    biases_reg_index = get_register_index(biases);
     //}
+
+    pads_begin = convolution->get_pads_begin();
+    pads_end = convolution->get_pads_end();
 }
 
 void ConvolutionMergedDwKernelEmitter::emit_impl(const std::vector<size_t>& in,
@@ -116,27 +122,77 @@ void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, c
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
         Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
 
+    // TODO: hardcode: const auto h->allocate_register();
+    const auto tmp = Vmm(9);
+    const auto result = Vmm(static_cast<int>(out[0]));
 
     // TODO: biases are not mandatory
     const size_t data_size = in.size() - 2ull;
-    Vmm weight_gp = Vmm(in[data_size - 2ull]);
-    Vmm biases_gp = Vmm(in[data_size - 1ull]);
+    const auto weight_gp = Reg64(in[data_size - 2ull]);
+    const auto biases_gp = Reg64(in[data_size - 1ull]);
 
     std::vector<Vmm> data(data_size);
     for (auto i = 0ull; i < data_size; ++i) {
         data[i] = Vmm(in[i]);
-        //h->uni_vmovups(data[i], biases_gp);
+    }
+
+    auto result_as_input = false;
+    for (auto i = 0ull; i < (in.size() - 2ull); ++i) {
+        if (in[i] == out[0]) {
+            result_as_input = true;
+            break;
+        }
+    }
+    if (result_as_input && (in[0] != out[0])) {
+        throw ov::Exception("incorrect register assignment");
+    }
+
+    if (!result_as_input) {
+        h->uni_vmovups(result, h->ptr[biases_gp]);
     }
 
     assert(filter_shape.size() == 2ull);
     const auto h_dim_max = filter_shape[0];
     const auto w_dim_max = filter_shape[1];
 
+    // TODO: just to explore weights zero issue
+    const size_t h_offset = 8 * 3 * 3 * 4;
+    const size_t w_offset = 8 * 4;
+
+    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 0 + w_offset * 0]);
+    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 0 + w_offset * 1]);
+    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 0 + w_offset * 2]);
+    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 1 + w_offset * 0]);
+    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 1 + w_offset * 1]);
+    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 1 + w_offset * 2]);
+    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 0]);
+    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 1]);
+    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 2]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + 8 * 4]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + 8 * 2 * 4]);
+
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + 8 * 8 * 4]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + 8 * 8 * 2 * 4]);
+
     for (auto h_dim = 0ull; h_dim < h_dim_max; ++h_dim) {
         for (auto w_dim = 0ull; w_dim < w_dim_max; ++w_dim) {
-            h->uni_vfmadd231ps(data[h_dim * 3ull + w_dim], weight_gp, data[w_dim + h_dim * 3ull]);
+            //h->uni_vmovups(tmp, h->ptr[weight_gp + (w_dim + h_dim * h_dim_max) * 8 * 8 * 4ull]);
+            h->uni_vmovups(tmp, h->ptr[weight_gp + (w_dim + h_dim * h_dim_max * 4ull)]);
+            if ((w_dim == 0ull) && (h_dim == 0ull)) {
+                h->uni_vmulps(result, tmp, data[w_dim + h_dim * 3ull]);
+            } else {
+                h->uni_vfmadd231ps(result, tmp, data[w_dim + h_dim * 3ull]);
+            }
         }
     }
+
+    if (result_as_input) {
+        h->uni_vmovups(tmp, h->ptr[biases_gp]);
+        h->uni_vaddps(result, result, tmp);
+    }
+
+    h->add(biases_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * 4ull);
+    h->add(weight_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * 4ull);
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 }

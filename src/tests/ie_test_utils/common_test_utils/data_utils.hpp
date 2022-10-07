@@ -189,6 +189,8 @@ fill_data_roi(ov::runtime::Tensor& tensor, const uint32_t range, const int heigh
     }
 }
 
+void fill_data_random(float* pointer, std::size_t size, const uint32_t range = 10, int32_t start_from = 0, const int32_t k = 1, const int seed = 1);
+
 template<class T>
 void inline
 fill_data_random(T *pointer, std::size_t size, const uint32_t range = 10, int32_t start_from = 0, const int32_t k = 1,
@@ -201,10 +203,7 @@ fill_data_random(T *pointer, std::size_t size, const uint32_t range = 10, int32_
     }
 
     for (std::size_t i = 0; i < size; i++) {
-        pointer[i] = i + 1;
-        //std::cout << i << " : " << pointer[i] << std::endl;
-
-        //pointer[i] = static_cast<T>(start_from + static_cast<T>(random.Generate(range)) / k);
+        pointer[i] = static_cast<T>(start_from + static_cast<T>(random.Generate(range)) / k);
     }
 }
 

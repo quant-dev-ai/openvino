@@ -40,6 +40,9 @@ private:
     ov::Shape filter_shape;
     int weights_reg_index;
     int biases_reg_index;
+
+    ov::CoordinateDiff pads_begin;
+    ov::CoordinateDiff pads_end;
 };
 }   // namespace intel_cpu
 }   // namespace ov

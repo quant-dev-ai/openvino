@@ -147,12 +147,15 @@ void Snippet::initSupportedPrimitiveDescriptors() {
                 std::shared_ptr<BlockedMemoryDesc> blocked_mem_desc = std::dynamic_pointer_cast<BlockedMemoryDesc>(mem_desc);
                 portConfig.setMemDesc(blocked_mem_desc);
             } else if (i == 3ul) {
-                //auto shape = getInputShapeAtPort(1);
+                // {96, 1, 1, 3, 3}
+                auto shape_to_debug = getInputShapeAtPort(i);
                 auto shape = inputShapes[i];
                 auto mem_desc = std::make_shared<ov::intel_cpu::DnnlBlockedMemoryDesc>(
                     shape,
                     dnnl::memory::data_type::f32,
-                    dnnl::memory::format_tag::OIdhw8i8o);
+                    //dnnl::memory::format_tag::OIdhw8i8o);
+                    dnnl::memory::format_tag::Abcde8a);
+                    //dnnl::memory::format_tag::OIhw8i8o);
 
                 std::shared_ptr<BlockedMemoryDesc> blocked_mem_desc = std::dynamic_pointer_cast<BlockedMemoryDesc>(mem_desc);
                 portConfig.setMemDesc(blocked_mem_desc);
@@ -236,32 +239,37 @@ void Snippet::execute(dnnl::stream strm) {
                         h++;
                     }
 
-                    std::cout << "\t" << value[w * 8 + (c % 8) + (c / 8) * spacial_volume * 8];
+                    std::cout << std::fixed << "\t" << value[w * 8 + (c % 8) + (c / 8) * spacial_volume * 8];
                 }
             }
         }
         std::cout << std::endl;
     };
 
-    //// TODO: backprop: debug only
-    //auto display_raw = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs) {
-    //    for (size_t i = 0; i < memPtrs.size(); i++) {
-    //        float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
-    //        auto shape = memPtrs[i]->GetShape().getDims();
-    //        std::cout << std::endl << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
-    //
-    //        const auto spacial_volume = shape[2] * shape[3];
-    //        for (auto i = 0; i < spacial_volume * shape[1]; ++i) {
-    //            std::cout << "\t" << i << ": " << value[i];
-    //        }
-    //    }
-    //    std::cout << std::endl;
-    //};
+    // TODO: backprop: debug only
+    auto display_raw = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs) {
+        for (size_t i = 0; i < memPtrs.size(); i++) {
+            float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
+            auto shape = memPtrs[i]->GetShape().getDims();
+            std::cout << std::endl << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
+
+            const auto shape_size = shape.size();
+            if (i == 0l) {
+                continue;
+            }
+
+            const auto spacial_volume = ngraph::shape_size(shape);
+            for (auto i = 0; i < spacial_volume; ++i) {
+                std::cout << "\t" << i << ": " << value[i];
+            }
+        }
+        std::cout << std::endl;
+    };
 #endif
 
 #ifdef CPU_DEBUG_CAPS
     std::cout << std::endl << "srcMemPtrs.size() = " << srcMemPtrs.size() << std::endl;
-    display(srcMemPtrs);
+    display_raw(srcMemPtrs);
 #endif
 
     if (tensorRank == rank6D) {
@@ -632,6 +640,7 @@ void Snippet::generate() {
 
 void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
     const auto& dom = exec_domain;
+    //const std::vector<size_t> dom = { 1, 1, 1, 1, 1, 8 };
     // < N, C, H, W > < 1, 1, N, C*H*W>
     parallel_for5d(dom[0], dom[1], dom[2], dom[3], dom[4],
         [&](int64_t d0, int64_t d1, int64_t d2, int64_t d3, int64_t d4) {

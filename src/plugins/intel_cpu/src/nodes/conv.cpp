@@ -1338,7 +1338,7 @@ void Convolution::execute(dnnl::stream strm) {
                     std::cout << std::endl << h << ": ";
                     h++;
                 }
-                std::cout << "\t" << std::setfill('0') << std::setw(3) << value[w * 8 + c];
+                std::cout << std::fixed << std::setprecision(0) << "\t" << std::setfill('0') << std::setw(3) << value[w * 8 + c];
             }
         }
         std::cout << std::endl;
@@ -1356,7 +1356,11 @@ void Convolution::execute(dnnl::stream strm) {
 
 #ifdef CPU_DEBUG_CAPS
     {
-        auto memory = getParentEdgesAtPort(0)[0]->getMemoryPtr();
+        const auto config = getSelectedPrimitiveDescriptor()->getConfig();
+        const auto dataSize = config.inConfs[0].getMemDesc()->getPrecision().size();
+
+        auto memory = getChildEdgeAt(0)->getMemoryPtr();
+        auto offset = memory->GetDescWithType<BlockedMemoryDesc>()->getOffsetPadding() * dataSize;
         std::cout << std::endl << "dstMemPtrs.size() = " << 1 << std::endl;
         display(memory);
     }

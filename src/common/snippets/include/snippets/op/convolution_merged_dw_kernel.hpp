@@ -20,13 +20,22 @@ public:
             const std::vector<Output<Node>>& data_batch,
             const Output<Node>& filters,
             const Output<Node>& biases,
+            const ov::CoordinateDiff& pads_begin,
+            const ov::CoordinateDiff& pads_end,
             const size_t outputs_size);
 
     bool visit_attributes(AttributeVisitor& visitor) override { return true; }
     void validate_and_infer_types() override;
     std::shared_ptr<Node> clone_with_new_inputs(const OutputVector& inputs) const override;
 
+    ov::CoordinateDiff get_pads_begin() const;
+    ov::CoordinateDiff get_pads_end() const;
+
     size_t outputs_size;
+
+private:
+    const ov::CoordinateDiff pads_begin;
+    const ov::CoordinateDiff pads_end;
 };
 
 } // namespace op
