@@ -1338,7 +1338,7 @@ void Convolution::execute(dnnl::stream strm) {
                     std::cout << std::endl << h << ": ";
                     h++;
                 }
-                std::cout << std::fixed << std::setprecision(0) << "\t" << std::setfill('0') << std::setw(3) << value[w * 8 + c];
+                std::cout << std::fixed << std::setprecision(3) << "\t" << std::setfill('0') << std::setw(3) << value[w * 8 + c];
             }
         }
         std::cout << std::endl;

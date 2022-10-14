@@ -7,6 +7,7 @@
 #include "ngraph/op/op.hpp"
 #include "snippets/emitter.hpp"
 #include "tile.hpp"
+#include "openvino/op/util/attr_types.hpp"
 
 namespace ngraph {
 namespace snippets {
@@ -20,11 +21,14 @@ public:
             const std::vector<Output<Node>>& data_batch,
             const Output<Node>& filters,
             const Output<Node>& biases,
+            const Strides& strides,
             const ov::CoordinateDiff& pads_begin,
             const ov::CoordinateDiff& pads_end,
+            const Strides& dilations,
+            const ov::op::PadType& auto_pad,
             const size_t outputs_size);
 
-    bool visit_attributes(AttributeVisitor& visitor) override { return true; }
+    bool visit_attributes(AttributeVisitor& visitor) override { return true; };
     void validate_and_infer_types() override;
     std::shared_ptr<Node> clone_with_new_inputs(const OutputVector& inputs) const override;
 
@@ -34,8 +38,11 @@ public:
     size_t outputs_size;
 
 private:
-    const ov::CoordinateDiff pads_begin;
-    const ov::CoordinateDiff pads_end;
+    const Strides& strides;
+    const ov::CoordinateDiff& pads_begin;
+    const ov::CoordinateDiff& pads_end;
+    const Strides& dilations;
+    const ov::op::PadType& auto_pad;
 };
 
 } // namespace op

@@ -156,28 +156,23 @@ void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, c
     const auto w_dim_max = filter_shape[1];
 
     // TODO: just to explore weights zero issue
-    const size_t h_offset = 8 * 3 * 3 * 4;
-    const size_t w_offset = 8 * 4;
+    //const size_t h_offset = 8 * 3 * 3 * 4;
+    //const size_t w_offset = 8 * 4;
 
-    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 0 + w_offset * 0]);
-    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 0 + w_offset * 1]);
-    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 0 + w_offset * 2]);
-    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 1 + w_offset * 0]);
-    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 1 + w_offset * 1]);
-    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 1 + w_offset * 2]);
-    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 0]);
-    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 1]);
-    h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 2]);
-    //h->uni_vmovups(tmp, h->ptr[weight_gp + 8 * 4]);
-    //h->uni_vmovups(tmp, h->ptr[weight_gp + 8 * 2 * 4]);
-
-    //h->uni_vmovups(tmp, h->ptr[weight_gp + 8 * 8 * 4]);
-    //h->uni_vmovups(tmp, h->ptr[weight_gp + 8 * 8 * 2 * 4]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 0 + w_offset * 0]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 0 + w_offset * 1]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 0 + w_offset * 2]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 1 + w_offset * 0]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 1 + w_offset * 1]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 1 + w_offset * 2]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 0]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 1]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 2]);
 
     for (auto h_dim = 0ull; h_dim < h_dim_max; ++h_dim) {
         for (auto w_dim = 0ull; w_dim < w_dim_max; ++w_dim) {
             //h->uni_vmovups(tmp, h->ptr[weight_gp + (w_dim + h_dim * h_dim_max) * 8 * 8 * 4ull]);
-            h->uni_vmovups(tmp, h->ptr[weight_gp + (w_dim + h_dim * h_dim_max * 4ull)]);
+            h->uni_vmovups(tmp, h->ptr[weight_gp + (w_dim + h_dim * h_dim_max) * 8ull * 4ull]);
             if ((w_dim == 0ull) && (h_dim == 0ull)) {
                 h->uni_vmulps(result, tmp, data[w_dim + h_dim * 3ull]);
             } else {
@@ -191,8 +186,8 @@ void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, c
         h->uni_vaddps(result, result, tmp);
     }
 
-    h->add(biases_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * 4ull);
-    h->add(weight_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen * 4ull);
+    h->add(biases_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+    h->add(weight_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 }

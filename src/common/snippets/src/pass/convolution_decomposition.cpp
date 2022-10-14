@@ -298,8 +298,11 @@ bool decompose_1x1_by_filter(
         convolution_dw_kernel_inputs,
         group_convolution->get_input_node_shared_ptr(1),
         group_biases,
+        group_convolution->get_strides(),
         group_convolution->get_pads_begin(),
         group_convolution->get_pads_end(),
+        group_convolution->get_dilations(),
+        group_convolution->get_auto_pad(),
         1ul);
     ngraph::copy_runtime_info(group_convolution, convolution_dw_kernel);
     convolution_dw_kernel->set_friendly_name(group_convolution->get_friendly_name());

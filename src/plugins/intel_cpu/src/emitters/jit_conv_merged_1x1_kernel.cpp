@@ -127,15 +127,16 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
     std::vector<Vmm> accums(out.size());
     for (auto i = 0ull; i < out.size(); ++i) {
         accums[i] = Vmm(out[i]);
-        h->uni_vmovups(accums[i], h->ptr[biases_gp + i * 32ull]);
+        //h->uni_vmovups(accums[i], h->ptr[biases_gp + i * 32ull]);
+        h->uni_vmovups(accums[i], h->ptr[biases_gp]);
     }
 
 
-    // 1 output data for 1..8 output channels
-    for (auto w = 0ull; w < 3ull; ++w) {
-        for (auto h = 0ull; h < 3ull; ++h) {
-        }
-    }
+    //// 1 output data for 1..8 output channels
+    //for (auto w = 0ull; w < 3ull; ++w) {
+    //    for (auto h = 0ull; h < 3ull; ++h) {
+    //    }
+    //}
 
     for (auto in_ch = 0ull; in_ch < 16ull; ++in_ch) {
         h->uni_vmovups(weights, h->ptr[weight_gp + in_ch * 32ull]);
@@ -160,6 +161,10 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
     //        }
     //    }
     //}
+
+    h->add(data_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+    h->add(biases_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
+    h->add(weight_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
 
     insert_marker(MARKER_CONVOLUTION_KERNEL);
 }

@@ -3,6 +3,9 @@
 //
 
 #include "blob_dump.h"
+
+#include <iomanip>
+
 #include "blob_factory.hpp"
 #include <cpu_memory.h>
 #include <dnnl_extension_utils.h>
@@ -168,7 +171,7 @@ void BlobDumper::dumpAsTxt(std::ostream &stream) const {
         case Precision::FP32 : {
             auto *blob_ptr = reinterpret_cast<const float*>(ptr);
             for (size_t i = 0; i < data_size; i++)
-                stream << blob_ptr[desc.getElementOffset(i)] << std::endl;
+                stream << std::fixed << std::setprecision(3) << blob_ptr[desc.getElementOffset(i)] << std::endl;
             break;
         }
         case Precision::BF16: {

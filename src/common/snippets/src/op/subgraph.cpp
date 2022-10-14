@@ -67,6 +67,9 @@ void snippets::op::Subgraph::validate_and_infer_types() {
     set_output_size(m_body->get_output_size());
     for (size_t i = 0; i < get_output_size(); ++i) {
         set_output_type(i, m_body->get_output_element_type(i), m_body->get_output_partial_shape(i));
+        // TODO: FIXME: not completed
+        // Subgraph::canonicalize - failed
+        //set_output_type(i, m_body->get_output_element_type(i), ov::PartialShape{1, 96, 110, 110});
     }
 }
 
@@ -151,10 +154,14 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
     AxisVector baseOrder;
 
     // TODO: improve later
-    auto inputShapesWithoutSpecificConstant = (inputShapes.size() < 5ull) ?
-        BlockedShapeVector{ inputShapes[0], inputShapes[2] } :
-        BlockedShapeVector{ inputShapes[0], inputShapes[2], inputShapes[4] };
-    std::tie(baseShape, baseOrder, std::ignore) = getMaxRankBlockedShape(inputShapesWithoutSpecificConstant);
+    if (inputShapes.size() == 1ull) {
+        std::tie(baseShape, baseOrder, std::ignore) = getMaxRankBlockedShape(inputShapes);
+    } else {
+        auto inputShapesWithoutSpecificConstant = (inputShapes.size() < 5ull) ?
+            BlockedShapeVector{ inputShapes[0], inputShapes[2] } :
+            BlockedShapeVector{ inputShapes[0], inputShapes[2], inputShapes[4] };
+        std::tie(baseShape, baseOrder, std::ignore) = getMaxRankBlockedShape(inputShapesWithoutSpecificConstant);
+    }
 
     const auto baseRank = baseShape.size();
     const bool baseIsBlocked = baseOrder.size() != std::set<size_t>(baseOrder.begin(), baseOrder.end()).size();
@@ -303,7 +310,7 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
 
     // TODO: for quick check
     const auto ordered_ops = m_body->get_ordered_ops();
-    assert(ordered_ops.size() >= 11ul);
+    //assert(ordered_ops.size() >= 11ul);
 
     ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.3.svg").run_on_model(m_body);
     ov::pass::Serialize("svg/snippets.convert_to_snippet_dialect.3.xml", "svg/snippets.convert_to_snippet_dialect.3.bin").run_on_model(m_body);

@@ -230,11 +230,13 @@ void compare(const ov::Tensor& expected,
         auto eps = std::numeric_limits<double>::epsilon();
         return (b - a) > (std::fmax(std::fabs(a), std::fabs(b)) * eps);
     };
+
+    const size_t max_errors_count_to_display = 124;
+    size_t errors_were_displayed = 0;
+
     for (size_t i = 0; i < shape_size(expected_shape); i++) {
         double expected_value = expected_data[i];
         double actual_value = actual_data[i];
-
-        std::cout << i + 1ul << ": expected: " << expected_value << "\t\tactual: " << actual_value << std::endl;
 
         auto error = [&] (Error& err, double val, double threshold) {
             if (less(err.max, val)) {
@@ -258,6 +260,20 @@ void compare(const ov::Tensor& expected,
         auto rel = expected_value ? (abs/std::fabs(expected_value)) : abs;
         error(abs_error, abs, abs_threshold);
         error(rel_error, rel, rel_threshold);
+
+        if (errors_were_displayed < max_errors_count_to_display) {
+            Error tmp_abs_error, tmp_rel_error;
+
+            auto abs = std::fabs(expected_value - actual_value);
+            auto rel = expected_value ? (abs / std::fabs(expected_value)) : abs;
+            error(tmp_abs_error, abs, abs_threshold);
+            error(tmp_rel_error, rel, rel_threshold);
+            if (!(less(tmp_abs_error.max, abs_threshold) && less(tmp_rel_error.max, rel_threshold))) {
+                std::cout << i + 1ul << ": expected: " << expected_value << "\t\tactual: " << actual_value <<
+                    "\t\t<= error: abs=" << abs << ", rel=" << rel << std::endl;
+                errors_were_displayed++;
+            }
+        }
     }
     abs_error.mean /= shape_size(expected_shape);
     rel_error.mean /= shape_size(expected_shape);

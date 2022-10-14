@@ -65,8 +65,8 @@ const std::vector<LayerTestsDefinitions::ConvolutionTestValues::ConvolutionParam
 
 void ConvolutionTest::SetUp() {
     // not initialized by default
-    abs_threshold = 0.01;
-    rel_threshold = 0.01;
+    abs_threshold = 0.2;
+    rel_threshold = 0.2;
 
     auto& testsParams = this->GetParam();
 
@@ -90,6 +90,7 @@ void ConvolutionTest::SetUp() {
             },
             to_params(values.convolution_params));
 
+    ngraph::pass::Validate().run_on_model(function);
     ngraph::pass::VisualizeTree("svg/test.actual.svg").run_on_function(function);
     ngraph::pass::Serialize("svg/test.actual.xml", "svg/test.actual.bin").run_on_function(function);
 }

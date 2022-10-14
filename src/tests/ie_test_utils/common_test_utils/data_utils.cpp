@@ -256,7 +256,7 @@ void fill_data_random(float* pointer, std::size_t size, const uint32_t range, in
     for (std::size_t i = 0; i < size; i++) {
         // input data
         // pointer[i] = 1;
-        pointer[i] = i + 1;
+        pointer[i] = 1.0 + static_cast<float>(i) / 100.f;
     }
 }
 

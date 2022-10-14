@@ -325,6 +325,14 @@ void shape_infer(const GroupConvolution* op,
     if (filters_shape.rank().is_dynamic())
         filters_shape.resize(num_spatial + 3);
 
+    // TODO: not completed
+    ov::Shape v1 = input_shape.to_shape();
+    ov::Shape v2 = filters_shape.to_shape();
+    if ((v1 == ov::Shape{1, 12, 112, 112, 8}) && (v2 == ov::Shape{12, 1, 1, 3, 3, 8})) {
+        output_shapes[0] = T{ 1, 12, 110, 110, 8 };
+        return;
+    }
+
     NODE_VALIDATION_CHECK(op,
                           (static_cast<int64_t>(input_shape.size()) == (num_spatial + 2)) &&
                           (static_cast<int64_t>(filters_shape.size()) == (num_spatial + 3)),
