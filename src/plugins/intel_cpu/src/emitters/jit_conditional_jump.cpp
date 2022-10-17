@@ -89,6 +89,18 @@ void ConditionalJumpEmitter::emit_isa(const std::vector<size_t> &in, const std::
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
 
+
+    // TODO: hardcode - just to test
+    //const auto weight_gp_1x1 = Reg64(3);
+    //h->add(weight_gp_1x1, 16 * 4 * 32);
+    //const auto biases_gp_1x1 = Reg64(6);
+    //h->add(biases_gp_1x1, 16 * 4 * 32);
+
+    //const auto weight_gp_dw = Reg64(8);
+    //h->add(weight_gp_dw, 16 * 4 * 32);
+    //const auto biases_gp_dw = Reg64(7);
+    //h->add(biases_gp_dw, 16 * 4 * 32);
+
     auto h2 = static_cast<jit_snippets_generator*>(h);
     // TODO: workaround: implement and remove
     h2->uni_vmovups(Vmm(out[1]), Vmm(in[0]));

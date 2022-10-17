@@ -164,6 +164,7 @@ void KernelEmitter::init_data_pointers(size_t num_inputs, size_t num_params,
         }
     };
     for (auto i = 0; i < num_params; i++) {
+        insert_marker(MARKER_KERNEL);
         if (i < num_inputs) {
             h->mov(data_ptr_regs[i], h->ptr[reg_const_params + GET_OFF(src_ptrs) + i * sizeof(void *)]);
         } else {
@@ -173,6 +174,7 @@ void KernelEmitter::init_data_pointers(size_t num_inputs, size_t num_params,
         // we can use the last data_ptr_reg as tmp_reg until the last iteration, and reg_const_params then
         Reg64 reg_tmp = i < num_params-1 ? data_ptr_regs.back() : reg_const_params;
         init_ptrs_with_offsets(data_ptr_regs[i], &jcp.data_offsets[i * harness_num_dims], reg_tmp);
+        insert_marker(MARKER_KERNEL);
     }
 }
 void KernelEmitter::emit_impl(const std::vector<size_t>& in,

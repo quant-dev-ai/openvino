@@ -1348,7 +1348,7 @@ void Convolution::execute(dnnl::stream strm) {
     {
         auto memory = getParentEdgesAtPort(0)[0]->getMemoryPtr();
         std::cout << std::endl << "srcMemPtrs.size() = " << 1 << std::endl;
-        display(memory);
+        //display(memory);
     }
 #endif
 
@@ -1362,7 +1362,7 @@ void Convolution::execute(dnnl::stream strm) {
         auto memory = getChildEdgeAt(0)->getMemoryPtr();
         auto offset = memory->GetDescWithType<BlockedMemoryDesc>()->getOffsetPadding() * dataSize;
         std::cout << std::endl << "dstMemPtrs.size() = " << 1 << std::endl;
-        display(memory);
+        //display(memory);
     }
 #endif
 }

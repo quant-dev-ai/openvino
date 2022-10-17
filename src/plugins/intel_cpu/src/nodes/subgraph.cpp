@@ -4,6 +4,7 @@
 
 #include "subgraph.h"
 
+#include <iomanip>
 #include <ie_parallel.hpp>
 
 #include <vector>
@@ -231,6 +232,10 @@ void Snippet::execute(dnnl::stream strm) {
 
             const auto spacial_volume = shape[2] * shape[3];
             for (auto c = 0ull; c < shape[1]; ++c) {
+                if (c == 9) {
+                    std::cout << "display: interrupted" << std::endl;
+                    break;
+                }
                 std::cout << std::endl << "channel: " << c;
                 auto h = 0ul;
                 for (auto w = 0ull; w < spacial_volume; ++w) {
@@ -239,7 +244,7 @@ void Snippet::execute(dnnl::stream strm) {
                         h++;
                     }
 
-                    std::cout << std::fixed << "\t" << value[w * 8 + (c % 8) + (c / 8) * spacial_volume * 8];
+                    std::cout << std::fixed << std::setprecision(3) << "\t" << value[w * 8 + (c % 8) + (c / 8) * spacial_volume * 8];
                 }
             }
         }
@@ -260,16 +265,26 @@ void Snippet::execute(dnnl::stream strm) {
 
             const auto spacial_volume = ngraph::shape_size(shape);
             for (auto i = 0; i < spacial_volume; ++i) {
-                std::cout << "\t" << i << ": " << value[i];
+                std::cout << std::fixed << std::setprecision(3) << "\t" << i << ": " << value[i];
             }
         }
         std::cout << std::endl;
+    };
+
+    auto clean = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs, const size_t index) {
+        float* value = reinterpret_cast<float*>(memPtrs[index]->GetData());
+        auto shape = memPtrs[index]->GetShape().getDims();
+        const auto shape_size = ngraph::shape_size(shape);
+        for (auto i = 0; i < shape_size; ++i) {
+            value[i] = 0.f;
+        }
     };
 #endif
 
 #ifdef CPU_DEBUG_CAPS
     std::cout << std::endl << "srcMemPtrs.size() = " << srcMemPtrs.size() << std::endl;
-    display_raw(srcMemPtrs);
+    //display_raw(srcMemPtrs);
+    clean(dstMemPtrs, 0ull);
 #endif
 
     if (tensorRank == rank6D) {
@@ -280,7 +295,7 @@ void Snippet::execute(dnnl::stream strm) {
 
 #ifdef CPU_DEBUG_CAPS
     std::cout << std::endl << "dstMemPtrs.size() = " << dstMemPtrs.size() << std::endl;
-    display(dstMemPtrs);
+    //display(dstMemPtrs);
 #endif
 }
 
@@ -391,7 +406,10 @@ void Snippet::define_schedule() {
     ngraph::snippets::op::Subgraph::BlockedShapeVector output_blocked_shapes;
     for (size_t i = 0; i < outputShapes.size(); i++)
         output_blocked_shapes.push_back(edgeToBlockedShape(getChildEdgesAtPort(i)[0]));
+
+    // TODO: should depends on inputs
     exec_domain = snippet->canonicalize(output_blocked_shapes, input_blocked_shapes);
+
     // initialize by maximum output dimension. Dimensions of outputs should be broadcastable
     tensorRank = std::max(static_cast<size_t>(rank6D), exec_domain.size());
     // Canonicalization broadcasts inputs and outputs to max input rank, which can be smaller than tensorRank
@@ -505,6 +523,12 @@ void Snippet::define_schedule() {
                 offsets_out[i][j] *= dataSize;
             }
         }
+
+        // TODO: remove
+        //offsets_out[0][0] = 4 * 8 * 110 * 110 * 12;
+        //offsets_out[0][1] = 4 * 8 * 110 * 110 * 12;
+        //offsets_out[0][2] = 4 * 8 * 110 * 110;
+        //offsets_out[0][3] = 4 * 8 * 110;
 
         start_offset_out.resize(outputNum);
         dstMemPtrs.resize(outputNum);
@@ -635,23 +659,54 @@ void Snippet::generate() {
         auto b = offsets_out[i].begin();
         std::copy(b, b + harness_num_dims, &jcp.data_offsets[(inputShapes.size() + i) * harness_num_dims]);
     }
+
+    const size_t channel_jump = 6;
+    // TODO: hardcode/workaround - has to be fixed
+    // input data
+    jcp.data_offsets[2] = 0;
+    // 1x1 weigths
+    jcp.data_offsets[7] = channel_jump * 512; // 16 (input channels) * 1 * 1 * (filter size 1x1) * 8 * 4
+    // 1x1 biases
+    jcp.data_offsets[12] = channel_jump * 32;
+    // depth-wise weight
+    jcp.data_offsets[17] = channel_jump * 288; // 1 (depth-wise) * 3 * 3 (filter size 3x3) * 8 * 4
+    // depth-wise biases
+    jcp.data_offsets[22] = channel_jump * 32;
+    // output
+    jcp.data_offsets[27] = channel_jump * 110 * 110 * 8 * 4;
+
     schedule = snippet->generate(reinterpret_cast<void*>(&jcp));
 }
 
 void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
-    const auto& dom = exec_domain;
-    //const std::vector<size_t> dom = { 1, 1, 1, 1, 1, 8 };
+    //const auto& dom = exec_domain;
+    //const std::vector<size_t> dom = { 1, 1, 12, 110, 1, 8 };
+    //const std::vector<size_t> dom = { 1, 1, 2, 110, 1, 8 };
+    //const std::vector<size_t> dom = { 1, 1, 1, 2, 1, 8 };
+    const std::vector<size_t> dom = { 1, 1, 2, 110, 1, 8 };
     // < N, C, H, W > < 1, 1, N, C*H*W>
+
+    auto executions = 0ull;
+
     parallel_for5d(dom[0], dom[1], dom[2], dom[3], dom[4],
         [&](int64_t d0, int64_t d1, int64_t d2, int64_t d3, int64_t d4) {
+            //if (executions != 0ull) {
+            //    return;
+            //}
             int64_t indexes[] = {d0, d1, d2, d3, d4};
 
 #ifdef CPU_DEBUG_CAPS
             std::cout << "d0 = " << d0 << ", d1 = " << d1 << ", d2 = " << d2 << ", d3 = " << d3 << ", d4 = " << d4 << std::endl;
+            if (d2 == 1) {
+                std::cout << "DEBUG" << std::endl;
+            }
 #endif
 
             auto callable = schedule.get_callable<kernel>();
             callable(indexes, &call_args);
+
+            executions++;
+            std::cout << "executions: " << executions << std::endl;
         });
 }
 

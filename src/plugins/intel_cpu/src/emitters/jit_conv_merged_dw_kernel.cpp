@@ -128,8 +128,14 @@ void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, c
 
     // TODO: biases are not mandatory
     const size_t data_size = in.size() - 2ull;
-    const auto weight_gp = Reg64(in[data_size - 2ull]);
-    const auto biases_gp = Reg64(in[data_size - 1ull]);
+    const auto weight_gp = Reg64(in[in.size() - 2ull]);
+    const auto biases_gp = Reg64(in[in.size() - 1ull]);
+
+    // TODO: just to debug
+    h->uni_vmovups(tmp, h->ptr[weight_gp]);
+    h->uni_vmovups(tmp, h->ptr[biases_gp]);
+    h->uni_vmovups(tmp, h->ptr[weight_gp + 3 * 3 * 8ull * 4ull]);
+    h->uni_vmovups(tmp, h->ptr[biases_gp + 8 * 4]);
 
     std::vector<Vmm> data(data_size);
     for (auto i = 0ull; i < data_size; ++i) {
@@ -149,6 +155,9 @@ void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, c
 
     if (!result_as_input) {
         h->uni_vmovups(result, h->ptr[biases_gp]);
+    } else {
+        h->uni_vmovups(tmp, h->ptr[biases_gp]);
+        h->uni_vaddps(result, result, tmp);
     }
 
     assert(filter_shape.size() == 2ull);
@@ -181,10 +190,10 @@ void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, c
         }
     }
 
-    if (result_as_input) {
-        h->uni_vmovups(tmp, h->ptr[biases_gp]);
-        h->uni_vaddps(result, result, tmp);
-    }
+    //if (result_as_input) {
+    //    h->uni_vmovups(tmp, h->ptr[biases_gp]);
+    //    h->uni_vaddps(result, result, tmp);
+    //}
 
     h->add(biases_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
     h->add(weight_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);

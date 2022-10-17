@@ -224,6 +224,7 @@ bool decompose_1x1_by_filter(
     // TODO: static
     const auto input_shape = convolution->get_input_shape(0);
     const auto output_shape = convolution->output(0).get_shape();
+    // TODO: temporary hardcoded
     const auto filter_volume = 9ull;
     const auto iterations_count = 1ull;
 

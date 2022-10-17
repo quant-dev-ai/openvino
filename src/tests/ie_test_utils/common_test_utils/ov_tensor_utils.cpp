@@ -261,6 +261,18 @@ void compare(const ov::Tensor& expected,
         error(abs_error, abs, abs_threshold);
         error(rel_error, rel, rel_threshold);
 
+        if (i < 112 * 6) {
+            if (!(less(abs_error.max, abs_threshold) && less(rel_error.max, rel_threshold))) {
+                std::cout << i + 1ul << std::fixed << std::setprecision(3)
+                    << ": expected: " << expected_value << "\t\tactual: " << actual_value << "\t\t<= error: abs=" << abs << ", rel=" << rel << std::endl;
+                errors_were_displayed++;
+            } else {
+                std::cout << i + 1ul << std::fixed << std::setprecision(3)
+                    << ": expected: " << expected_value << "\t\tactual: " << actual_value << std::endl;
+            }
+        }
+
+
         if (errors_were_displayed < max_errors_count_to_display) {
             Error tmp_abs_error, tmp_rel_error;
 
