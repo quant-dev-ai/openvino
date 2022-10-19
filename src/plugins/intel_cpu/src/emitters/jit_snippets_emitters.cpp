@@ -319,6 +319,11 @@ void TileSchedulerEmitter::emit_impl(const std::vector<size_t>& in,
     auto h2 = static_cast<jit_snippets_generator*>(h);
     h2->init_registers(local_gpr_pool);
 
+    //Reg64 loop_r = Reg64(10);
+    //h->mov(loop_r, 6);
+
+    //insert_marker(MARKER_TILE_SCHEDULER);
+
     Label for_body;
     const size_t outer_work_amount = jcp.scheduler_dims[0];
     if (outer_work_amount == 1) {
@@ -349,6 +354,25 @@ void TileSchedulerEmitter::emit_impl(const std::vector<size_t>& in,
     }
 
     insert_marker(MARKER_TILE_SCHEDULER);
+
+    //const auto weight_gp_1x1 = Reg64(3);
+    //h->add(weight_gp_1x1, 512);
+    //const auto biases_gp_1x1 = Reg64(6);
+    //h->add(biases_gp_1x1, 32);
+
+    //const auto weight_gp_dw = Reg64(8);
+    //h->add(weight_gp_dw, 288);
+    //const auto biases_gp_dw = Reg64(7);
+    //h->add(biases_gp_dw, 32);
+
+    //const auto output_gp = Reg64(9);
+    //h->add(output_gp, 110 * 110 * 8 * 4);
+
+    //h->sub(loop_r, 1);
+    //h->cmp(loop_r, 1);
+    //h->jge(for_body, CodeGenerator::T_NEAR);
+
+    //insert_marker(MARKER_TILE_SCHEDULER);
 }
 
 std::vector<AllocatedEmitter>& TileEmitter::get_nested_code() {

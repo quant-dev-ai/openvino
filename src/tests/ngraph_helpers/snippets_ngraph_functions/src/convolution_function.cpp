@@ -8,7 +8,7 @@
 #include <snippets/snippets_isa.hpp>
 #include "common_test_utils/data_utils.hpp"
 
-#define DEBUG_DATA
+//#define DEBUG_DATA
 
 namespace ov {
 namespace test {
@@ -40,7 +40,7 @@ std::shared_ptr<Node> make_convolution(
 #ifdef DEBUG_DATA
         generate_values(weights_shape, 1)
 #else
-        generate_values(weights_shape, 0.5)
+        generate_values(weights_shape, 0.3)
 #endif
     );
     weights->set_friendly_name("weights" + (size == 1ul ? "" : std::to_string(index + 1)));
@@ -84,7 +84,7 @@ std::shared_ptr<Node> make_convolution(
 #ifdef DEBUG_DATA
         generate_values(biases_shape, 20)
 #else
-        generate_values(biases_shape, 0.7)
+        generate_values(biases_shape, 0.1)
 #endif
     );
     biases->set_friendly_name("biases" + (size == 1ul ? "" : std::to_string(index + 1)));
@@ -119,8 +119,11 @@ std::shared_ptr<ov::Model> ConvolutionFunction::get(
     for (auto i = 0ull; i < convolution_params.size(); ++i) {
         const auto& convolution_param = convolution_params[i];
         parent = make_convolution(parent, convolution_param, convolution_param.weights_shape, i, convolution_params.size());
-
-        parent = std::make_shared<ngraph::opset1::Clamp>(parent, 0, 9999999999999);
+#ifdef DEBUG_DATA
+        parent = std::make_shared<ngraph::opset1::Clamp>(parent, 0, 999999999999999);
+#else
+        parent = std::make_shared<ngraph::opset1::Clamp>(parent, 0, 99999999);
+#endif
         parent->set_friendly_name("clamp" + (convolution_params.size() == 1ul ? "" : std::to_string(i + 1)));
     }
 

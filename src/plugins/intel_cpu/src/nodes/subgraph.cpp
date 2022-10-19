@@ -660,7 +660,8 @@ void Snippet::generate() {
         std::copy(b, b + harness_num_dims, &jcp.data_offsets[(inputShapes.size() + i) * harness_num_dims]);
     }
 
-    const size_t channel_jump = 6;
+    //const size_t channel_jump = 6;
+    const size_t channel_jump = 1;
     // TODO: hardcode/workaround - has to be fixed
     // input data
     jcp.data_offsets[2] = 0;
@@ -683,7 +684,8 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
     //const std::vector<size_t> dom = { 1, 1, 12, 110, 1, 8 };
     //const std::vector<size_t> dom = { 1, 1, 2, 110, 1, 8 };
     //const std::vector<size_t> dom = { 1, 1, 1, 2, 1, 8 };
-    const std::vector<size_t> dom = { 1, 1, 2, 110, 1, 8 };
+    //const std::vector<size_t> dom = { 1, 1, 2, 110, 1, 8 };
+    const std::vector<size_t> dom = { 1, 1, 2 * 6, 110, 1, 8 };
     // < N, C, H, W > < 1, 1, N, C*H*W>
 
     auto executions = 0ull;
@@ -700,6 +702,10 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
             if (d2 == 1) {
                 std::cout << "DEBUG" << std::endl;
             }
+
+            //if (d3 == 5) {
+            //    std::cout << "DEBUG" << std::endl;
+            //}
 #endif
 
             auto callable = schedule.get_callable<kernel>();

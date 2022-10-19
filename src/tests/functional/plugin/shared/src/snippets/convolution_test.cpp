@@ -65,8 +65,8 @@ const std::vector<LayerTestsDefinitions::ConvolutionTestValues::ConvolutionParam
 
 void ConvolutionTest::SetUp() {
     // not initialized by default
-    abs_threshold = 0.2;
-    rel_threshold = 0.2;
+    abs_threshold = 0.05f;
+    rel_threshold = 0.01f;
 
     auto& testsParams = this->GetParam();
 

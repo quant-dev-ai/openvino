@@ -124,6 +124,7 @@ void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, c
 
     // TODO: hardcode: const auto h->allocate_register();
     const auto tmp = Vmm(9);
+    const auto tmp2 = Vmm(10);
     const auto result = Vmm(static_cast<int>(out[0]));
 
     // TODO: biases are not mandatory
@@ -132,10 +133,10 @@ void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, c
     const auto biases_gp = Reg64(in[in.size() - 1ull]);
 
     // TODO: just to debug
-    h->uni_vmovups(tmp, h->ptr[weight_gp]);
-    h->uni_vmovups(tmp, h->ptr[biases_gp]);
-    h->uni_vmovups(tmp, h->ptr[weight_gp + 3 * 3 * 8ull * 4ull]);
-    h->uni_vmovups(tmp, h->ptr[biases_gp + 8 * 4]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp]);
+    //h->uni_vmovups(tmp, h->ptr[biases_gp]);
+    //h->uni_vmovups(tmp, h->ptr[weight_gp + 3 * 3 * 8ull * 4ull]);
+    //h->uni_vmovups(tmp, h->ptr[biases_gp + 8 * 4]);
 
     std::vector<Vmm> data(data_size);
     for (auto i = 0ull; i < data_size; ++i) {
@@ -153,12 +154,14 @@ void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, c
         throw ov::Exception("incorrect register assignment");
     }
 
-    if (!result_as_input) {
-        h->uni_vmovups(result, h->ptr[biases_gp]);
-    } else {
-        h->uni_vmovups(tmp, h->ptr[biases_gp]);
-        h->uni_vaddps(result, result, tmp);
-    }
+    //if (!result_as_input) {
+    //    h->uni_vmovups(result, h->ptr[biases_gp]);
+    //} else {
+    //    h->uni_vmovups(tmp, h->ptr[biases_gp]);
+    //    h->uni_vaddps(result, result, tmp);
+    //}
+
+    assert(result_as_input);
 
     assert(filter_shape.size() == 2ull);
     const auto h_dim_max = filter_shape[0];
@@ -178,12 +181,27 @@ void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, c
     //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 1]);
     //h->uni_vmovups(tmp, h->ptr[weight_gp + h_offset * 2 + w_offset * 2]);
 
+    //for (auto h_dim = 0ull; h_dim < h_dim_max; ++h_dim) {
+    //    for (auto w_dim = 0ull; w_dim < w_dim_max; ++w_dim) {
+    //        //h->uni_vmovups(tmp, h->ptr[weight_gp + (w_dim + h_dim * h_dim_max) * 8 * 8 * 4ull]);
+    //        h->uni_vmovups(tmp, h->ptr[weight_gp + (w_dim + h_dim * h_dim_max) * 8ull * 4ull]);
+    //        if ((w_dim == 0ull) && (h_dim == 0ull)) {
+    //            h->uni_vmulps(result, tmp, data[w_dim + h_dim * 3ull]);
+    //        } else {
+    //            h->uni_vfmadd231ps(result, tmp, data[w_dim + h_dim * 3ull]);
+    //        }
+    //    }
+    //}
+
     for (auto h_dim = 0ull; h_dim < h_dim_max; ++h_dim) {
         for (auto w_dim = 0ull; w_dim < w_dim_max; ++w_dim) {
             //h->uni_vmovups(tmp, h->ptr[weight_gp + (w_dim + h_dim * h_dim_max) * 8 * 8 * 4ull]);
             h->uni_vmovups(tmp, h->ptr[weight_gp + (w_dim + h_dim * h_dim_max) * 8ull * 4ull]);
             if ((w_dim == 0ull) && (h_dim == 0ull)) {
-                h->uni_vmulps(result, tmp, data[w_dim + h_dim * 3ull]);
+                // TODO: like as oneDNN
+                h->uni_vmovups(tmp2, result);
+                h->uni_vmovups(result, h->ptr[biases_gp]);
+                h->uni_vfmadd231ps(result, tmp, tmp2);
             } else {
                 h->uni_vfmadd231ps(result, tmp, data[w_dim + h_dim * 3ull]);
             }

@@ -252,17 +252,17 @@ void fill_data_const(InferenceEngine::Blob::Ptr& blob, float val) {
     fill_data_const(blob, std::vector<float> {val});
 }
 
-#define DEBUG_DATA
+//#define DEBUG_DATA
 
-void fill_data_random(float* pointer, std::size_t size, const uint32_t range, int32_t start_from, const int32_t k, const int seed) {
-    for (std::size_t i = 0; i < size; i++) {
-        // input data
-#ifdef DEBUG_DATA
-        pointer[i] = static_cast<float>(i) + 1;
-#else
-        pointer[i] = 1.0 + static_cast<float>(i) / 100.f;
-#endif
-    }
-}
+//void fill_data_random(float* pointer, std::size_t size, const uint32_t range, int32_t start_from, const int32_t k, const int seed) {
+//    for (std::size_t i = 0; i < size; i++) {
+//        // input data
+//#ifdef DEBUG_DATA
+//        pointer[i] = static_cast<float>(i) + 1;
+//#else
+//        pointer[i] = 0.5 + static_cast<float>(i) / 100.f;
+//#endif
+//    }
+//}
 
 }  // namespace CommonTestUtils

@@ -126,11 +126,11 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
 
     // TODO: just to debug
     // channel * 8 * size
-    h->uni_vmovups(weights, h->ptr[weight_gp]);
-    Vmm biases(0);
-    h->uni_vmovups(biases, h->ptr[biases_gp]);
-    h->uni_vmovups(weights, h->ptr[weight_gp + 16 * 8 * 4]);
-    h->uni_vmovups(biases, h->ptr[biases_gp + 8 * 4]);
+    //h->uni_vmovups(weights, h->ptr[weight_gp]);
+    //Vmm biases(0);
+    //h->uni_vmovups(biases, h->ptr[biases_gp]);
+    //h->uni_vmovups(weights, h->ptr[weight_gp + 16 * 8 * 4]);
+    //h->uni_vmovups(biases, h->ptr[biases_gp + 8 * 4]);
 
     std::vector<Vmm> accums(out.size());
     for (auto i = 0ull; i < out.size(); ++i) {
