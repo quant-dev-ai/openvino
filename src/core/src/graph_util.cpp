@@ -258,18 +258,24 @@ std::vector<std::shared_ptr<ngraph::Node>> ngraph::clone_nodes(const std::vector
     // for each node in topological order
     auto sorted_nodes = topological_sort(nodes);
     for (const auto& node : sorted_nodes) {
+#ifdef CPU_DEBUG_CAPS
         std::cout << "node: " << node->get_type_name() << ":" << node->get_friendly_name() << std::endl;
+#endif
         if (node_map.count(node.get()) == 0) {
+#ifdef CPU_DEBUG_CAPS
             std::cout << "\tabsent: " << node->get_type_name() << ":" << node->get_friendly_name() << std::endl;
+#endif
 
             // get (already) cloned arguments and clone the node
             OutputVector cloned_args;
             for (auto input : node->inputs()) {
                 Output<Node> output = input.get_source_output();
+#ifdef CPU_DEBUG_CAPS
                 std::cout <<
                     "\tsource_node=" << output.get_node()->get_type_name() <<
                     ":" << output.get_node()->get_friendly_name() <<
                     std::endl;
+#endif
 
                 auto it = node_map.find(output.get_node());
                 if (it == node_map.end()) {

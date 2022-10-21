@@ -85,11 +85,11 @@ public:
         std::copy(regs.begin(), regs.end(), inserter(free_registers, free_registers.begin()));
     }
 
-    int alloc_register(const size_t unique_key = -1ul) {
+    int alloc_register(const size_t unique_key = -1) {
         if (free_registers.size() == 0ul) {
             throw ov::Exception("not enough registers");
         }
-        if ((unique_key != -1ul) && (allocated_named_registers.find(unique_key) != allocated_named_registers.end())) {
+        if ((unique_key != static_cast<size_t>(-1)) && (allocated_named_registers.find(unique_key) != allocated_named_registers.end())) {
             throw ov::Exception("register with name '" + std::to_string(unique_key) + "' has been allocated already");
         }
 
@@ -97,7 +97,7 @@ public:
         auto reg = *reg_it;
         free_registers.erase(reg_it);
 
-        if (unique_key != -1ul) {
+        if (unique_key != -1) {
             allocated_named_registers.emplace(unique_key, reg);
         }
         return reg;

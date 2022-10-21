@@ -63,18 +63,26 @@ ngraph::snippets::code ngraph::snippets::Generator::generate(std::shared_ptr<ov:
     }
     OV_ITT_TASK_NEXT(GENERATE, "::ScalarTile")
 
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/snippets.generator.1.svg").run_on_model(m);
     std::cout << "Generator::generate:" << std::endl;
+#endif
 
     // scalar tile
     auto m_scalar = ov::clone_model(*m.get());
+
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/snippets.generator.2.svg").run_on_model(m_scalar);
+#endif
 
     ngraph::pass::Manager mng;
     mng.register_pass<ngraph::snippets::pass::ReplaceLoadsWithScalarLoads>();
     mng.register_pass<ngraph::snippets::pass::ReplaceStoresWithScalarStores>();
     mng.run_passes(m_scalar);
+
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/snippets.generator.3.svg").run_on_model(m_scalar);
+#endif
 
     OV_ITT_TASK_NEXT(GENERATE, "::ScalarTile_get")
     std::vector<AllocatedEmitter> scalar_lowered;

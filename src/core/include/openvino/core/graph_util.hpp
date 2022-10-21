@@ -264,12 +264,12 @@ std::vector<std::shared_ptr<Node>> topological_sort(T root_nodes) {
                 auto get_order = [](const Node* node) {
                     const auto& node_rt = node->get_rt_info();
                     const auto node_it = node_rt.find("order");
-                    return node_it != node_rt.end() ? node_it->second.as<size_t>() : -1ul;
+                    return node_it != node_rt.end() ? node_it->second.as<size_t>() : -1;
                 };
 
                 const auto node_order = get_order(node);
                 const auto dep_order = get_order(dep);
-                if ((node_order == -1ul) || (dep_order == -1ul) || (dep_order < node_order)) {
+                if ((node_order == -1) || (dep_order == -1) || (dep_order < node_order)) {
                     if ((nodes_done.count(dep) == 0) && (dep_was_added.count({node, dep}) == 0)) {
                         can_add = false;
                         nodes_to_do.push(dep);

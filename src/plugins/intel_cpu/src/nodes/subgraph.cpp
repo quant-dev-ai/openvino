@@ -688,13 +688,12 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
     const std::vector<size_t> dom = { 1, 1, 2 * 6, 110, 1, 8 };
     // < N, C, H, W > < 1, 1, N, C*H*W>
 
+#ifdef CPU_DEBUG_CAPS
     auto executions = 0ull;
+#endif
 
     parallel_for5d(dom[0], dom[1], dom[2], dom[3], dom[4],
         [&](int64_t d0, int64_t d1, int64_t d2, int64_t d3, int64_t d4) {
-            //if (executions != 0ull) {
-            //    return;
-            //}
             int64_t indexes[] = {d0, d1, d2, d3, d4};
 
 #ifdef CPU_DEBUG_CAPS
@@ -702,17 +701,15 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
             if (d2 == 1) {
                 std::cout << "DEBUG" << std::endl;
             }
-
-            //if (d3 == 5) {
-            //    std::cout << "DEBUG" << std::endl;
-            //}
 #endif
 
             auto callable = schedule.get_callable<kernel>();
             callable(indexes, &call_args);
 
+#ifdef CPU_DEBUG_CAPS
             executions++;
             std::cout << "executions: " << executions << std::endl;
+#endif
         });
 }
 

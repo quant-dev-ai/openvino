@@ -91,8 +91,11 @@ void ConvolutionTest::SetUp() {
             to_params(values.convolution_params));
 
     ngraph::pass::Validate().run_on_model(function);
+
+#ifdef CPU_DEBUG_CAPS
     ngraph::pass::VisualizeTree("svg/test.actual.svg").run_on_function(function);
     ngraph::pass::Serialize("svg/test.actual.xml", "svg/test.actual.bin").run_on_function(function);
+#endif
 }
 
 void ConvolutionTest::run() {

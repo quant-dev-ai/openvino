@@ -538,6 +538,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
     postLPTPassManager.run_passes(nGraphFunc);
 
     if (!useLpt && _enableSnippets && dnnl::impl::cpu::x64::mayiuse(dnnl::impl::cpu::x64::avx2)) {
+        std::cout << "Snippets are here" << std::endl;
+
         ngraph::pass::Manager tokenization_manager;
         tokenization_manager.register_pass<SnippetsMarkSkipped>();
         tokenization_manager.register_pass<ngraph::snippets::pass::EnumerateNodes>();
@@ -568,6 +570,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
         //ngraph::pass::Manager common_manager;
         //common_manager.register_pass<ngraph::snippets::pass::CommonOptimizations>();
         //common_manager.run_passes(nGraphFunc);
+    } else {
+        std::cout << "Snippets are ignored" << std::endl;
     }
 
 #ifdef CPU_DEBUG_CAPS

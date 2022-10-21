@@ -142,7 +142,9 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
     NODE_VALIDATION_CHECK(this, outputShapes.size() == m_body->get_results().size(),
         "number of results for snippet doesn't match passed to generate method: ", outputShapes.size(), " vs ", m_body->get_results().size(), ".");
 
+#ifdef CPU_DEBUG_CAPS
     ngraph::pass::VisualizeTree("svg/snippets.canonicalize.1.svg").run_on_model(m_body);
+#endif
 
     auto getMaxRankBlockedShape = [](const BlockedShapeVector& blockedShapes) -> const BlockedShape& {
         return *std::max_element(blockedShapes.begin(), blockedShapes.end(),
@@ -210,11 +212,16 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
                 m_body->replace_parameter(i, std::make_shared<opset1::Parameter>(inType, inShape));
     }
 
+#ifdef CPU_DEBUG_CAPS
     ngraph::pass::VisualizeTree("svg/snippets.canonicalize.2.svg").run_on_model(m_body);
+#endif
 
     m_body->validate_nodes_and_infer_types();
 
+
+#ifdef CPU_DEBUG_CAPS
     ngraph::pass::VisualizeTree("svg/snippets.canonicalize.3.svg").run_on_model(m_body);
+#endif
 
     auto skipStartEndOnes = [](const Shape& shape) {
         auto begin = shape.begin();
@@ -249,7 +256,9 @@ Shape snippets::op::Subgraph::canonicalize(const BlockedShapeVector& outputShape
         NODE_VALIDATION_CHECK(this, compatibleWithOtherOutputs, "Snippets output shapes must be numpy broadcastable");
     }
 
+#ifdef CPU_DEBUG_CAPS
     ngraph::pass::VisualizeTree("svg/snippets.canonicalize.4.svg").run_on_model(m_body);
+#endif
 
     exec_domain = outPShape.get_shape();
     return exec_domain;
@@ -259,7 +268,9 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     INTERNAL_OP_SCOPE(Subgraph);
     OV_ITT_SCOPED_TASK(ngraph::pass::itt::domains::SnippetsTransform, "Snippets::convert_to_snippet_dialect")
 
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.1.svg").run_on_model(m_body);
+#endif
 
     auto skip_matching_domain = [](const std::shared_ptr<const ov::Node>& n) -> bool {
         return n->get_input_shape(0).back() != 1;
@@ -296,8 +307,10 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     }
     manager.run_passes(m_body);
 
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.2.svg").run_on_model(m_body);
     ov::pass::Serialize("svg/snippets.convert_to_snippet_dialect.2.xml", "svg/snippets.convert_to_snippet_dialect.2.bin").run_on_model(m_body);
+#endif
 
     // TODO: will be fixed later: ConvolutionDecomposition will be moved upper by execution flow
     {
@@ -312,8 +325,10 @@ void snippets::op::Subgraph::convert_to_snippet_dialect() {
     const auto ordered_ops = m_body->get_ordered_ops();
     //assert(ordered_ops.size() >= 11ul);
 
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/snippets.convert_to_snippet_dialect.3.svg").run_on_model(m_body);
     ov::pass::Serialize("svg/snippets.convert_to_snippet_dialect.3.xml", "svg/snippets.convert_to_snippet_dialect.3.bin").run_on_model(m_body);
+#endif
 }
 
 snippets::Schedule snippets::op::Subgraph::generate(const BlockedShapeVector& output_shapes,

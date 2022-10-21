@@ -39,7 +39,9 @@ std::shared_ptr<ov::op::v0::Parameter> get_parameter(const std::shared_ptr<ov::M
 TEST(ROI_Backprop, MaxPoolTest) {
     const auto model = get_model(ov::Strides{3, 2}, {0, 0}, {0, 0}, ov::Shape{3, 2});
 
+#ifdef CPU_DEBUG_CAPS
     ov::pass::VisualizeTree("svg/max_pool_test.svg").run_on_model(model);
+#endif
 
     auto map = ov::snippets::get_roi_from_function(model, {{1ul, 1ul, 1ul, 1ul}});
     const auto& actual_roi = map[get_parameter(model).get()];
