@@ -145,7 +145,7 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
     for (const auto& reg : regs) {
         physical_regs[reg.first] = register_map[reg.second];
     }
-    const auto num_parameters = f->get_parameters().size();
+    //const auto num_parameters = f->get_parameters().size();
     for (const auto& n : f->get_ordered_ops()) {
         auto& rt = n->get_rt_info();
         std::vector<size_t> regs;
@@ -251,7 +251,9 @@ bool ngraph::snippets::pass::AssignRegisters::run_on_model(const std::shared_ptr
         std::cout << "assign_registers: " << n->get_type_name() << std::endl;
 #endif
 
-        if ((n->get_type_name() == "ScalarStore") || (n->get_type_name() == "Store")) {
+        // TODO: AssignRegister works incorrectly: fix later
+        // TODO: workaround
+        if ((std::string(n->get_type_name()) == "ScalarStore") || (std::string(n->get_type_name()) == "Store")) {
             regs = { 5 };
         }
 

@@ -146,10 +146,10 @@ void Convolution1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, const 
     //h->uni_vmovups(weights[1ul], h->ptr[weight_gp + 4 * in_channels * 8]);
     //h->uni_vmovups(weights[2ul], h->ptr[weight_gp + 4 * in_channels * 8 * 2]);
 
-    const auto values_in_register = 8ul;
+    //const auto values_in_register = 8ul;
     // values are handled per output channel filters: 4 values per each 24 output filters
     const auto values_amount_per_channel = 4ul;
-    assert(values_in_register % values_amount_per_channel == 0);
+    //assert(values_in_register % values_amount_per_channel == 0);
 
     // we need it
     //const auto data_loop = values_in_register / values_amount_per_channel;

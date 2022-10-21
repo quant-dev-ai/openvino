@@ -38,10 +38,10 @@ public:
     size_t outputs_size;
 
 private:
-    const Strides& strides;
-    const ov::CoordinateDiff& pads_begin;
-    const ov::CoordinateDiff& pads_end;
-    const Strides& dilations;
+    const Strides strides;
+    const ov::CoordinateDiff pads_begin;
+    const ov::CoordinateDiff pads_end;
+    const Strides dilations;
     const ov::op::PadType& auto_pad;
 };
 

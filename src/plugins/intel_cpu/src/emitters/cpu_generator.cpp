@@ -160,7 +160,9 @@ bool ov::intel_cpu::CPUTargetMachine::is_supported() const {
 
 code ov::intel_cpu::CPUTargetMachine::get_snippet() const {
     auto result = h->create_kernel();
-    assert(result == dnnl::impl::status::success);
+    if (result != dnnl::impl::status::success) {
+        throw ov::Exception("create kernel was failed");
+    }
     return h->jit_ker();
 }
 

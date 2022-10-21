@@ -555,7 +555,7 @@ ConvolutionDecomposition::ConvolutionDecomposition() {
         //    return decompose_dw(group_convolution);
         //}
 
-        //throw ov::Exception("unexpected convolution");
+        throw ov::Exception("unexpected convolution");
     };
 
     register_matcher(std::make_shared<ngraph::pattern::Matcher>(matcher, matcher_name), callback);

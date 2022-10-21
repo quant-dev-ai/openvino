@@ -1323,26 +1323,26 @@ void Convolution::execute(dnnl::stream strm) {
     //    std::cout << std::endl;
     //};
 
-    // TODO: backprop: debug only
-    auto display = [](ov::intel_cpu::MemoryPtr& memPtr) {
-        float* value = reinterpret_cast<float*>(memPtr->GetData());
-        auto shape = memPtr->GetShape().getDims();
-        std::cout << std::endl << "memPtrs[i]: i=" << 0 << ", shape=" << shape << std::endl;
-
-        const auto spacial_volume = shape[2] * shape[3];
-        for (auto c = 0; c < shape[1]; c++) {
-            std::cout << std::endl << "channel: " << c;
-            auto h = 0ul;
-            for (auto w = 0; w < spacial_volume; ++w) {
-                if ((w % shape[2]) == 0ul) {
-                    std::cout << std::endl << h << ": ";
-                    h++;
-                }
-                std::cout << std::fixed << std::setprecision(3) << "\t" << std::setfill('0') << std::setw(3) << value[w * 8 + c];
-            }
-        }
-        std::cout << std::endl;
-    };
+    //// TODO: backprop: debug only
+    //auto display = [](ov::intel_cpu::MemoryPtr& memPtr) {
+    //    float* value = reinterpret_cast<float*>(memPtr->GetData());
+    //    auto shape = memPtr->GetShape().getDims();
+    //    std::cout << std::endl << "memPtrs[i]: i=" << 0 << ", shape=" << shape << std::endl;
+    //
+    //    const auto spacial_volume = shape[2] * shape[3];
+    //    for (auto c = 0; c < shape[1]; c++) {
+    //        std::cout << std::endl << "channel: " << c;
+    //        auto h = 0ul;
+    //        for (auto w = 0; w < spacial_volume; ++w) {
+    //            if ((w % shape[2]) == 0ul) {
+    //                std::cout << std::endl << h << ": ";
+    //                h++;
+    //            }
+    //            std::cout << std::fixed << std::setprecision(3) << "\t" << std::setfill('0') << std::setw(3) << value[w * 8 + c];
+    //        }
+    //    }
+    //    std::cout << std::endl;
+    //};
 
     std::cout << "Node type: " << getTypeStr() << std::endl;
     {
@@ -1356,11 +1356,11 @@ void Convolution::execute(dnnl::stream strm) {
 
 #ifdef CPU_DEBUG_CAPS
     {
-        const auto config = getSelectedPrimitiveDescriptor()->getConfig();
-        const auto dataSize = config.inConfs[0].getMemDesc()->getPrecision().size();
+        //const auto config = getSelectedPrimitiveDescriptor()->getConfig();
+        //const auto dataSize = config.inConfs[0].getMemDesc()->getPrecision().size();
 
         auto memory = getChildEdgeAt(0)->getMemoryPtr();
-        auto offset = memory->GetDescWithType<BlockedMemoryDesc>()->getOffsetPadding() * dataSize;
+        //auto offset = memory->GetDescWithType<BlockedMemoryDesc>()->getOffsetPadding() * dataSize;
         std::cout << std::endl << "dstMemPtrs.size() = " << 1 << std::endl;
         //display(memory);
     }

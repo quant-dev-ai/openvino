@@ -248,7 +248,7 @@ private:
             }
         }
 
-        assert(false);
+        throw ov::Exception("get_node: node is absent");
     }
 };
 std::vector<std::shared_ptr<ngraph::Node>> ngraph::clone_nodes(const std::vector<std::shared_ptr<ngraph::Node>>& nodes,

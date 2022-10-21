@@ -38,11 +38,10 @@ std::shared_ptr<Node> make_convolution(
         element::f32,
         weights_shape,
 #ifdef DEBUG_DATA
-        generate_values(weights_shape, 1)
+        generate_values(weights_shape, 1));
 #else
-        generate_values(weights_shape, 0.3)
+        generate_values(weights_shape, 0.3));
 #endif
-    );
     weights->set_friendly_name("weights" + (size == 1ul ? "" : std::to_string(index + 1)));
 
     const auto input_shape = parent.get_shape();
@@ -82,11 +81,10 @@ std::shared_ptr<Node> make_convolution(
         element::f32,
         biases_shape,
 #ifdef DEBUG_DATA
-        generate_values(biases_shape, 20)
+        generate_values(biases_shape, 20));
 #else
-        generate_values(biases_shape, 0.1)
+        generate_values(biases_shape, 0.1));
 #endif
-    );
     biases->set_friendly_name("biases" + (size == 1ul ? "" : std::to_string(index + 1)));
     auto add = std::make_shared<ngraph::opset1::Add>(convolution, biases);
     add->set_friendly_name("add" + (size == 1ul ? "" : std::to_string(index + 1)));

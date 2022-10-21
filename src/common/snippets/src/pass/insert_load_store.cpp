@@ -36,18 +36,14 @@ ngraph::snippets::pass::InsertLoad::InsertLoad() {
                     // Convolution data & Convolution weights
                     is_type<ngraph::opset1::Convolution>(input_node) ||
                     // Convolution biases
-                    (
-                        is_type<ngraph::opset1::Add>(input_node) &&
-                        is_type<ngraph::opset1::Convolution>(input_node->get_input_node_shared_ptr(0))
-                    ) ||
+                    (is_type<ngraph::opset1::Add>(input_node) &&
+                    is_type<ngraph::opset1::Convolution>(input_node->get_input_node_shared_ptr(0))) ||
 
                     // GroupConvolution weights (GroupConvolution data has to be excluded)
                     is_type<ngraph::opset1::GroupConvolution>(input_node) ||
                     // GroupConvolution biases
-                    (
-                        is_type<ngraph::opset1::Add>(input_node) &&
-                        is_type<ngraph::opset1::GroupConvolution>(input_node->get_input_node_shared_ptr(0))
-                    )) {
+                    (is_type<ngraph::opset1::Add>(input_node) &&
+                    is_type<ngraph::opset1::GroupConvolution>(input_node->get_input_node_shared_ptr(0)))) {
                     return false;
                 }
             }

@@ -224,52 +224,52 @@ void Snippet::execute(dnnl::stream strm) {
 
 #ifdef CPU_DEBUG_CAPS
     // TODO: backprop: debug only
-    auto display = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs) {
-        for (size_t i = 0; i < memPtrs.size(); i++) {
-            float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
-            auto shape = memPtrs[i]->GetShape().getDims();
-            std::cout << std::endl << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
+    //auto display = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs) {
+    //    for (size_t i = 0; i < memPtrs.size(); i++) {
+    //        float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
+    //        auto shape = memPtrs[i]->GetShape().getDims();
+    //        std::cout << std::endl << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
+    //
+    //        const auto spacial_volume = shape[2] * shape[3];
+    //        for (auto c = 0ull; c < shape[1]; ++c) {
+    //            if (c == 9) {
+    //                std::cout << "display: interrupted" << std::endl;
+    //                break;
+    //            }
+    //            std::cout << std::endl << "channel: " << c;
+    //            auto h = 0ul;
+    //            for (auto w = 0ull; w < spacial_volume; ++w) {
+    //                if ((w % shape[2]) == 0ul) {
+    //                    std::cout << std::endl << h << ": ";
+    //                    h++;
+    //                }
+    //
+    //                std::cout << std::fixed << std::setprecision(3) << "\t" << value[w * 8 + (c % 8) + (c / 8) * spacial_volume * 8];
+    //            }
+    //        }
+    //    }
+    //    std::cout << std::endl;
+    //};
 
-            const auto spacial_volume = shape[2] * shape[3];
-            for (auto c = 0ull; c < shape[1]; ++c) {
-                if (c == 9) {
-                    std::cout << "display: interrupted" << std::endl;
-                    break;
-                }
-                std::cout << std::endl << "channel: " << c;
-                auto h = 0ul;
-                for (auto w = 0ull; w < spacial_volume; ++w) {
-                    if ((w % shape[2]) == 0ul) {
-                        std::cout << std::endl << h << ": ";
-                        h++;
-                    }
-
-                    std::cout << std::fixed << std::setprecision(3) << "\t" << value[w * 8 + (c % 8) + (c / 8) * spacial_volume * 8];
-                }
-            }
-        }
-        std::cout << std::endl;
-    };
-
-    // TODO: backprop: debug only
-    auto display_raw = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs) {
-        for (size_t i = 0; i < memPtrs.size(); i++) {
-            float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
-            auto shape = memPtrs[i]->GetShape().getDims();
-            std::cout << std::endl << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
-
-            const auto shape_size = shape.size();
-            if (i == 0l) {
-                continue;
-            }
-
-            const auto spacial_volume = ngraph::shape_size(shape);
-            for (auto i = 0; i < spacial_volume; ++i) {
-                std::cout << std::fixed << std::setprecision(3) << "\t" << i << ": " << value[i];
-            }
-        }
-        std::cout << std::endl;
-    };
+    //// TODO: backprop: debug only
+    //auto display_raw = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs) {
+    //    for (size_t i = 0; i < memPtrs.size(); i++) {
+    //        float* value = reinterpret_cast<float*>(memPtrs[i]->GetData());
+    //        auto shape = memPtrs[i]->GetShape().getDims();
+    //        std::cout << std::endl << "memPtrs[i]: i=" << i << ", shape=" << shape << std::endl;
+    //
+    //        const auto shape_size = shape.size();
+    //        if (i == 0l) {
+    //            continue;
+    //        }
+    //
+    //        const auto spacial_volume = ngraph::shape_size(shape);
+    //        for (auto i = 0; i < spacial_volume; ++i) {
+    //            std::cout << std::fixed << std::setprecision(3) << "\t" << i << ": " << value[i];
+    //        }
+    //    }
+    //    std::cout << std::endl;
+    //};
 
     auto clean = [](std::vector<ov::intel_cpu::MemoryPtr>& memPtrs, const size_t index) {
         float* value = reinterpret_cast<float*>(memPtrs[index]->GetData());
