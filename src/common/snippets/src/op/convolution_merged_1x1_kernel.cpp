@@ -28,7 +28,13 @@ void ConvolutionMerged1x1Kernel::validate_and_infer_types() {
     // TODO: will be implemented later
     auto input_shape = get_input_partial_shape(0);
     for (auto i = 0ull; i < outputs_size; ++i) {
-        set_output_type(i, get_input_element_type(0), { 1, 12, 112, 112, 8 });
+        if (input_shape == PartialShape{1, 2, 112, 112, 8}) {
+            set_output_type(i, get_input_element_type(0), {1, 12, 112, 112, 8});
+        } else if (input_shape == PartialShape{1, 2, 224, 224, 8}) {
+            set_output_type(i, get_input_element_type(0), {1, 12, 224, 224, 8});
+        } else {
+            throw ov::Exception("not expected input shape");
+        }
     }
 }
 

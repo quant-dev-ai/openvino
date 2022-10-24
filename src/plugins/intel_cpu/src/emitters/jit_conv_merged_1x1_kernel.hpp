@@ -36,6 +36,7 @@ private:
     bool shouldPostIncrement;
 
     ov::op::PadType auto_pad;
+    ov::Shape data_spatial_shape;
     ov::Shape weights_shape;
 
     int data_reg_index;

@@ -264,6 +264,11 @@ void shape_infer(const Convolution* op,
         return;
     }
 
+    if ((input_shapes[0] == T{ 1, 2, 224, 224, 8 }) && (input_shapes[1] == T{ 12, 2, 1, 1, 8, 8 })) {
+        output_shapes[0] = T{ 1ul, 12ul, 224ul, 224ul, 8ul };
+        return;
+    }
+
     NODE_VALIDATION_CHECK(op, input_shapes.size() == 2 && output_shapes.size() == 1);
     auto input_shape = input_shapes[0], filters_shape = input_shapes[1];
 
@@ -330,6 +335,11 @@ void shape_infer(const GroupConvolution* op,
     ov::Shape v2 = filters_shape.to_shape();
     if ((v1 == ov::Shape{1, 12, 112, 112, 8}) && (v2 == ov::Shape{12, 1, 1, 3, 3, 8})) {
         output_shapes[0] = T{ 1, 12, 110, 110, 8 };
+        return;
+    }
+
+    if ((v1 == ov::Shape{1, 12, 224, 224, 8}) && (v2 == ov::Shape{12, 1, 1, 3, 3, 8})) {
+        output_shapes[0] = T{ 1, 12, 222, 222, 8 };
         return;
     }
 

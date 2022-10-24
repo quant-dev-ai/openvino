@@ -11,8 +11,6 @@
 #include "cpu_generator.hpp"
 
 #include "snippets/op/conditional_jump.hpp"
-#include "snippets/op/convolution_1x1_kernel.hpp"
-#include "snippets/op/convolution_dw_kernel.hpp"
 #include "snippets/op/convolution_merged_1x1_kernel.hpp"
 #include "snippets/op/convolution_merged_dw_kernel.hpp"
 #include "snippets/op/label.hpp"
@@ -22,8 +20,6 @@
 #include "snippets/op/scalar_broadcast_load.hpp"
 
 #include "jit_conditional_jump.hpp"
-#include "jit_conv_1x1_kernel.hpp"
-#include "jit_conv_dw_kernel.hpp"
 #include "jit_conv_merged_1x1_kernel.hpp"
 #include "jit_conv_merged_dw_kernel.hpp"
 #include "jit_label.hpp"
@@ -72,8 +68,6 @@ ov::intel_cpu::CPUTargetMachine::CPUTargetMachine(dnnl::impl::cpu::x64::cpu_isa_
 
     // layout-dependent
     jitters[ngraph::opset1::MaxPool::get_type_info_static()] = CREATE_EMITTER(MaxPoolEmitter);
-    jitters[ngraph::snippets::op::Convolution1x1Kernel::get_type_info_static()] = CREATE_EMITTER(Convolution1x1KernelEmitter);
-    jitters[ngraph::snippets::op::ConvolutionDwKernel::get_type_info_static()] = CREATE_EMITTER(ConvolutionDwKernelEmitter);
     jitters[ngraph::snippets::op::ConvolutionMerged1x1Kernel::get_type_info_static()] = CREATE_EMITTER(ConvolutionMerged1x1KernelEmitter);
     jitters[ngraph::snippets::op::ConvolutionMergedDwKernel::get_type_info_static()] = CREATE_EMITTER(ConvolutionMergedDwKernelEmitter);
 

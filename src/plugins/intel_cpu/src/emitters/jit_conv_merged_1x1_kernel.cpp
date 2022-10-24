@@ -7,7 +7,6 @@
 #include <ngraph/rt_info.hpp>
 #include <ngraph/variant.hpp>
 #include <ngraph/opsets/opset1.hpp>
-#include "snippets/op/convolution_1x1_kernel.hpp"
 #include "snippets/op/loop.hpp"
 
 using namespace Xbyak;
@@ -23,7 +22,15 @@ ConvolutionMerged1x1KernelEmitter::ConvolutionMerged1x1KernelEmitter(
     in_out_type_ = emitter_in_out_map::gpr_to_vec;
     shouldPostIncrement = true;
 
-    //const auto &convolution = as_type_ptr<ngraph::snippets::op::ConvolutionKernel>(n);
+    // TODO: temporary limitation
+    auto shape = n->input(0).get_shape();
+    if (shape.size() != 5ull) {
+        throw ov::Exception("unexpected shape size");
+    }
+
+    data_spatial_shape = {shape[2], shape[3]};
+
+    //const auto &convolution = as_type_ptr<ngraph::snippets::op::Convolution1x1Kernel>(n);
     //assert(convolution != nullptr);
 
     //auto get_register_index = [](const std::shared_ptr<ngraph::Node> &node) {
@@ -88,15 +95,20 @@ void ConvolutionMerged1x1KernelEmitter::emit_impl(const std::vector<size_t>& in,
 }
 
 namespace {
-size_t get_value_offset(const size_t val_index, const size_t ch_index, const size_t filters_count, const size_t vlen) {
-    return (val_index * 8 + (ch_index % 8) + (ch_index / 8) * 112 * 112 * 8) * 4;
+size_t get_value_offset(
+        const size_t val_index,
+        const size_t ch_index,
+        const size_t h_dim,
+        const size_t w_dim,
+        const size_t filters_count,
+        const size_t vlen) {
+    return (val_index * 8 + (ch_index % 8) + (ch_index / 8) * h_dim * w_dim * 8) * 4;
 }
 } // namespace
 
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
     assert(in.size() == 3ul);
-    //assert(out.size() == 1ul);
     if (out.size() != 1ul) {
         std::cout << "ConvolutionKernelEmitter::emit_isa: why we have more outputs?" << std::endl;
     }
@@ -110,67 +122,40 @@ void ConvolutionMerged1x1KernelEmitter::emit_isa(const std::vector<size_t> &in, 
     using Vmm = typename dnnl::impl::utils::conditional3<isa == dnnl::impl::cpu::x64::sse41,
             Xmm, isa == dnnl::impl::cpu::x64::avx2, Ymm, Zmm>::type;
 
-    //const size_t offset = dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen;
-    // TODO: get from shape
-    //const auto in_channels = weights_shape[1ul];
-    //const auto in_channels = 16ull;
-
     const auto data_gp = Reg64(data_reg_index);
     const auto weight_gp = Reg64(weights_reg_index);
     const auto biases_gp = Reg64(biases_reg_index);
 
+    // TODO: workaround: hardcoded values
     auto data = Vmm(15);
-
-    //std::vector<Vmm> weights = {Vmm(12), Vmm(13), Vmm(14)};
     auto weights = Vmm(12);
-
-    // TODO: just to debug
-    // channel * 8 * size
-    //h->uni_vmovups(weights, h->ptr[weight_gp]);
-    //Vmm biases(0);
-    //h->uni_vmovups(biases, h->ptr[biases_gp]);
-    //h->uni_vmovups(weights, h->ptr[weight_gp + 16 * 8 * 4]);
-    //h->uni_vmovups(biases, h->ptr[biases_gp + 8 * 4]);
 
     std::vector<Vmm> accums(out.size());
     h->uni_vmovups(accums[0], h->ptr[biases_gp]);
     for (auto i = 1ull; i < out.size(); ++i) {
         accums[i] = Vmm(out[i]);
-        //h->uni_vmovups(accums[i], h->ptr[biases_gp + i * 32ull]);
-        //h->uni_vmovups(accums[i], h->ptr[biases_gp]);
         h->uni_vmovups(accums[i], accums[0]);
     }
 
-
-    //// 1 output data for 1..8 output channels
-    //for (auto w = 0ull; w < 3ull; ++w) {
-    //    for (auto h = 0ull; h < 3ull; ++h) {
-    //    }
-    //}
+    const auto h_dim_max = data_spatial_shape[0];
+    const auto w_dim_max = data_spatial_shape[1];
 
     for (auto in_ch = 0ull; in_ch < 16ull; ++in_ch) {
         h->uni_vmovups(weights, h->ptr[weight_gp + in_ch * 32ull]);
         for (auto h_dim = 0ull; h_dim < 3ull; ++h_dim) {
             for (auto w_dim = 0ull; w_dim < 3ull; ++w_dim) {
-                //h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * 32ull * h_dim)]);
-
-                const auto value_offset = get_value_offset(w_dim + 112ull * h_dim, in_ch, 16ull, 32ull);
+                const auto value_offset = get_value_offset(
+                        w_dim + w_dim_max * h_dim,
+                        in_ch,
+                        h_dim_max,
+                        w_dim_max,
+                        16ull,
+                        dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
                 h->uni_vbroadcastss(data, h->ptr[data_gp + value_offset]);
-
                 h->uni_vfmadd231ps(accums[h_dim * 3ull + w_dim], weights, data);
             }
         }
     }
-
-    //for (auto h_dim = 0ull; h_dim < 3ull; ++h_dim) {
-    //    for (auto w_dim = 0ull; w_dim < 3ull; ++w_dim) {
-    //        h->uni_vbroadcastss(data, h->ptr[data_gp + (w_dim * 32ull + 112ull * 32ull * h_dim)]);
-    //        for (auto in_ch = 0ull; in_ch < 16ull; ++in_ch) {
-    //            h->uni_vmovups(weights, h->ptr[weight_gp + in_ch * 32ull]);
-    //            h->uni_vfmadd231ps(accums[h_dim * 3ull + w_dim], weights, data);
-    //        }
-    //    }
-    //}
 
     h->add(data_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);
     h->add(biases_gp, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::vlen);

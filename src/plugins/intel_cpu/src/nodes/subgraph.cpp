@@ -660,6 +660,9 @@ void Snippet::generate() {
         std::copy(b, b + harness_num_dims, &jcp.data_offsets[(inputShapes.size() + i) * harness_num_dims]);
     }
 
+    const auto shape = getOutputShapeAtPort(0);
+    const auto dims = shape.getDims();
+
     //const size_t channel_jump = 6;
     const size_t channel_jump = 1;
     // TODO: hardcode/workaround - has to be fixed
@@ -674,7 +677,8 @@ void Snippet::generate() {
     // depth-wise biases
     jcp.data_offsets[22] = channel_jump * 32;
     // output
-    jcp.data_offsets[27] = channel_jump * 110 * 110 * 8 * 4;
+    //jcp.data_offsets[27] = channel_jump * 110 * 110 * 8 * 4;
+    jcp.data_offsets[27] = channel_jump * dims[2] * dims[3] * 8 * 4;
 
     schedule = snippet->generate(reinterpret_cast<void*>(&jcp));
 }
@@ -685,7 +689,8 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
     //const std::vector<size_t> dom = { 1, 1, 2, 110, 1, 8 };
     //const std::vector<size_t> dom = { 1, 1, 1, 2, 1, 8 };
     //const std::vector<size_t> dom = { 1, 1, 2, 110, 1, 8 };
-    const std::vector<size_t> dom = { 1, 1, 2 * 6, 110, 1, 8 };
+    //const std::vector<size_t> dom = { 1, 1, 2 * 6, 110, 1, 8 };
+    const std::vector<size_t> dom = { 1, 1, 12, 220, 1, 8 };
     // < N, C, H, W > < 1, 1, N, C*H*W>
 
 #ifdef CPU_DEBUG_CAPS

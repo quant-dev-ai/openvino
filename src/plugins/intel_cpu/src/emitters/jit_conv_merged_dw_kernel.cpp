@@ -96,19 +96,6 @@ void ConvolutionMergedDwKernelEmitter::emit_impl(const std::vector<size_t>& in,
     }
 }
 
-namespace {
-size_t get_value_offset(const size_t val_index, const size_t ch_index, const size_t filters_count, const size_t vlen) {
-    //// TODO: not completed
-    //if (ch_index < 8) {
-    //    return val_index * 8ul * 4ul + ch_index * 4ul; // (filters_count * ch_index);
-    //}
-
-    //return val_index * 8ul * 4ul + ch_index * 4ul;
-
-    return (val_index * 8 + (ch_index % 8) + (ch_index / 8) * 112 * 112 * 8) * 4;
-}
-} // namespace
-
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 void ConvolutionMergedDwKernelEmitter::emit_isa(const std::vector<size_t> &in, const std::vector<size_t> &out) const {
     assert(in.size() >= 3ul);

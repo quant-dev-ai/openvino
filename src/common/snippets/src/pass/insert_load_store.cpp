@@ -9,7 +9,6 @@
 #include <snippets/itt.hpp>
 #include "snippets/remarks.hpp"
 #include "snippets/snippets_isa.hpp"
-#include "snippets/op/convolution_1x1_kernel.hpp"
 
 #include <ngraph/opsets/opset1.hpp>
 #include <ngraph/rt_info.hpp>

@@ -4,6 +4,10 @@
 
 set(TARGET_NAME funcSharedTests)
 
+if (ENABLE_CPU_DEBUG_CAPS)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCPU_DEBUG_CAPS")
+endif()
+
 set(PUBLIC_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 set(DEPENDENCIES mock_engine)

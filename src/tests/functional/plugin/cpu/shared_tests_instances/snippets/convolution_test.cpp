@@ -10,16 +10,6 @@ using namespace LayerTestsDefinitions;
 using namespace ngraph;
 
 const std::vector<ConvolutionTestValues> testValues = {
-        //{
-        //        {1, 16, 112, 112},
-        //        {{1, 1}, {0, 0}, {0, 0}, {1, 1}},
-        //        {{{1, 1}, {0, 0}, {0, 0}, {1, 1}, ov::op::PadType::EXPLICIT, ov::Shape{96, 16, 1, 1}}}
-        //},
-        //{
-        //        {1, 96, 112, 112},
-        //        {{1, 1}, {0, 0}, {0, 0}, {1, 1}},
-        //        {{1, 1}, {1, 1}, {1, 1}, {1, 1}, ov::op::PadType::EXPLICIT, {96, 1, 3, 3}}
-        //},
         {
                 {1, 16, 112, 112},
                 {{1, 1}, {0, 0}, {0, 0}, {1, 1}},
@@ -29,9 +19,18 @@ const std::vector<ConvolutionTestValues> testValues = {
                     {{1, 1}, {0, 0}, {0, 0}, {1, 1}, ov::op::PadType::VALID, ov::Shape{96, 1, 3, 3}}
                 },
         },
+        //{
+        //        {1, 16, 224, 224},
+        //        {{1, 1}, {0, 0}, {0, 0}, {1, 1}},
+        //        {
+        //                {{1, 1}, {0, 0}, {0, 0}, {1, 1}, ov::op::PadType::VALID, ov::Shape{96, 16, 1, 1}},
+        //                //{{1, 1}, {1, 1}, {1, 1}, {1, 1}, ov::op::PadType::VALID, ov::Shape{96, 1, 3, 3}}
+        //                {{1, 1}, {0, 0}, {0, 0}, {1, 1}, ov::op::PadType::VALID, ov::Shape{96, 1, 3, 3}}
+        //        },
+        //},
 };
 
-std::vector<size_t> input_batches = {1ul /*, 2ul*/ };
+std::vector<size_t> input_batches = { 1ull, /*2ul*/ };
 
 std::vector<ov::element::Type> input_types = { ov::element::f32 };
 
