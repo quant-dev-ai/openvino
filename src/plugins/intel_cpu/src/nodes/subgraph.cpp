@@ -680,17 +680,19 @@ void Snippet::generate() {
     //jcp.data_offsets[27] = channel_jump * 110 * 110 * 8 * 4;
     jcp.data_offsets[27] = channel_jump * dims[2] * dims[3] * 8 * 4;
 
+    std::cout << "dims: " << dims << std::endl;
+
     schedule = snippet->generate(reinterpret_cast<void*>(&jcp));
 }
 
 void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
-    //const auto& dom = exec_domain;
+    const auto& dom = exec_domain;
     //const std::vector<size_t> dom = { 1, 1, 12, 110, 1, 8 };
     //const std::vector<size_t> dom = { 1, 1, 2, 110, 1, 8 };
     //const std::vector<size_t> dom = { 1, 1, 1, 2, 1, 8 };
     //const std::vector<size_t> dom = { 1, 1, 2, 110, 1, 8 };
     //const std::vector<size_t> dom = { 1, 1, 2 * 6, 110, 1, 8 };
-    const std::vector<size_t> dom = { 1, 1, 12, 220, 1, 8 };
+    //const std::vector<size_t> dom = { 1, 1, 12, 222, 1, 8 };
     // < N, C, H, W > < 1, 1, N, C*H*W>
 
 #ifdef CPU_DEBUG_CAPS
@@ -706,10 +708,12 @@ void Snippet::schedule_6d(const jit_snippets_call_args& call_args) const {
             if (d2 == 1) {
                 std::cout << "DEBUG" << std::endl;
             }
-#endif
 
             auto callable = schedule.get_callable<kernel>();
             callable(indexes, &call_args);
+#else
+            schedule.get_callable<kernel>()(indexes, &call_args);
+#endif
 
 #ifdef CPU_DEBUG_CAPS
             executions++;
@@ -732,8 +736,7 @@ void Snippet::schedule_nt(const jit_snippets_call_args& call_args) const {
                 tmp /= work_size[j];
             }
 
-            auto callable = schedule.get_callable<kernel>();
-            callable(indexes.data(), &call_args);
+            schedule.get_callable<kernel>()(indexes.data(), &call_args);
         }
     });
 }
