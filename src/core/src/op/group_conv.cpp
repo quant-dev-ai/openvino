@@ -87,19 +87,11 @@ void op::v1::GroupConvolution::validate_and_infer_types() {
     auto& data_shape = get_input_partial_shape(0);
     auto& filter_shape = get_input_partial_shape(1);
 
-    // TODO: will be fixed later
-    //m_num_spatial = calculate_num_spatial(this, data_shape, filter_shape, 2, 3);
-    m_num_spatial = 2ull;
+    m_num_spatial = calculate_num_spatial(this, data_shape, filter_shape, 2, 3);
     update_and_validate_attributes(this);
 
     std::vector<ov::PartialShape> input_shapes = {data_shape, filter_shape};
     std::vector<ov::PartialShape> output_shapes = {ov::PartialShape::dynamic()};
-
-    if ((input_shapes[0] == ov::PartialShape{ 1, 12, 112, 112, 8 }) && (input_shapes[1] == ov::PartialShape{ 12, 1, 1, 3, 3, 8, 8 })) {
-        output_shapes[0] = ov::PartialShape{ 1ul, 12ul, 112ul, 112ul, 8ul };
-        set_output_type(0, result_et, output_shapes[0]);
-        return;
-    }
 
     if (m_num_spatial != -1) {
         resolve_auto_pad_for_shape(this, m_pads_begin, m_pads_end, input_shapes, 2, 3);

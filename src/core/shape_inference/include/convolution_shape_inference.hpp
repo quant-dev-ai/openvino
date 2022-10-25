@@ -227,45 +227,9 @@ void shape_infer(const Convolution* op,
                  const CoordinateDiff& pads_end,
                  const std::vector<T> &input_shapes,
                  std::vector<T> &output_shapes) {
-    // TODO: debug only
-    if ((input_shapes[0] == T{ 1, 8, 16, 16, 8 }) && (input_shapes[1] == T{ 64, 8, 1, 1, 8 })) {
-        output_shapes[0] = T{ 1ul, 8ul, 16ul, 16ul, 8ul };
-        return;
-    }
-    if ((input_shapes[0] == T{ 1, 8, 56, 56, 8 }) && (input_shapes[1] == T{ 64, 8, 3, 3, 8 })) {
-        output_shapes[0] = T{ 1ul, 8ul, 56ul, 56ul, 8ul };
-        return;
-    }
-    if ((input_shapes[0] == T{ 1, 8, 56, 56, 8 }) && (input_shapes[1] == T{ 64, 8, 3, 3, 8 })) {
-        output_shapes[0] = T{ 1ul, 8ul, 56ul, 56ul, 8ul };
-        return;
-    }
-    if ((input_shapes[0] == T{ 1, 2, 112, 112, 8 }) && (input_shapes[1] == T{ 96, 2, 1, 1, 8 })) {
-        output_shapes[0] = T{ 1ul, 12ul, 112ul, 112ul, 8ul };
-        return;
-    }
-
-    if ((input_shapes[0] == T{ 1, 16, 112, 112 }) && (input_shapes[1] == T{ 96, 16, 1, 1 })) {
-        output_shapes[0] = T{ 1ul, 96ul, 112ul, 112ul };
-        return;
-    }
-
-    if ((input_shapes[0] == T{ 1, 16, 112, 112 }) && (input_shapes[1] == T{ 1, 96, 16, 1 })) {
-        output_shapes[0] = T{ 1ul, 96ul, 112ul, 112ul };
-        return;
-    }
-    if ((input_shapes[0] == T{ 1, 2, 112, 112, 8 }) && (input_shapes[1] == T{ 1, 12, 16, 1, 8 })) {
-        output_shapes[0] = T{ 1ul, 12ul, 112ul, 112ul, 8ul };
-        return;
-    }
-
-    if ((input_shapes[0] == T{ 1, 2, 112, 112, 8 }) && (input_shapes[1] == T{ 12, 2, 1, 1, 8, 8 })) {
-        output_shapes[0] = T{ 1ul, 12ul, 112ul, 112ul, 8ul };
-        return;
-    }
-
-    if ((input_shapes[0] == T{ 1, 2, 224, 224, 8 }) && (input_shapes[1] == T{ 12, 2, 1, 1, 8, 8 })) {
-        output_shapes[0] = T{ 1ul, 12ul, 224ul, 224ul, 8ul };
+    // TODO: not completed
+    if ((input_shapes[0].size() == 5ull) && (input_shapes[1].size() == 6ull)) {
+        output_shapes[0] = T{input_shapes[0][0], input_shapes[1][0], input_shapes[0][2], input_shapes[0][3], 8ul};
         return;
     }
 
@@ -331,15 +295,8 @@ void shape_infer(const GroupConvolution* op,
         filters_shape.resize(num_spatial + 3);
 
     // TODO: not completed
-    ov::Shape v1 = input_shape.to_shape();
-    ov::Shape v2 = filters_shape.to_shape();
-    if ((v1 == ov::Shape{1, 12, 112, 112, 8}) && (v2 == ov::Shape{12, 1, 1, 3, 3, 8})) {
-        output_shapes[0] = T{ 1, 12, 110, 110, 8 };
-        return;
-    }
-
-    if ((v1 == ov::Shape{1, 12, 224, 224, 8}) && (v2 == ov::Shape{12, 1, 1, 3, 3, 8})) {
-        output_shapes[0] = T{ 1, 12, 222, 222, 8 };
+    if ((input_shapes[0].size() == 5ull) && (input_shapes[1].size() == 6ull)) {
+        output_shapes[0] = T{input_shapes[0][0], input_shapes[1][0], input_shapes[0][2] - 2ull, input_shapes[0][3] - 2ull, 8ul};
         return;
     }
 

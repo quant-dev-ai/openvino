@@ -50,20 +50,12 @@ void ConvolutionMergedDwKernel::validate_and_infer_types() {
     set_output_size(outputs_size);
 
     // TODO: will be implemented later
-    //assert((strides.size() == 2ull) && (strides[0] == 1) && (strides[1] == 1));
-    //assert((pads_begin.size() == 2ull) && (pads_begin[0] == 0) && (pads_begin[1] == 0));
-    //assert((pads_end.size() == 2ull) && (pads_end[0] == 0) && (pads_end[1] == 0));
-    //assert((dilations.size() == 2ull) && (dilations[0] == 1) && (dilations[1] == 1));
-
-    auto input_shape = get_input_partial_shape(0);
+    auto data_shape = get_input_partial_shape(0);
+    assert(data_shape.size() >= 4ull);
+    auto weights_shape = get_input_partial_shape(1);
+    assert(data_shape.size() >= 5ull);
     for (auto i = 0ull; i < outputs_size; ++i) {
-        if (input_shape == PartialShape{1, 12, 112, 112, 8}) {
-            set_output_type(i, get_input_element_type(0), {1, 12, 110, 110, 8});
-        } else if (input_shape == PartialShape{1, 12, 224, 224, 8}) {
-            set_output_type(i, get_input_element_type(0), {1, 12, 222, 222, 8});
-        } else {
-            throw ov::Exception("not expected input shape");
-        }
+        set_output_type(i, get_input_element_type(0), {data_shape[0], weights_shape[0], data_shape[2] - 2ull, data_shape[3] - 2ull, 8});
     }
 }
 
